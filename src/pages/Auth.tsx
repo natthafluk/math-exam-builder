@@ -10,10 +10,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const TEST_ACCOUNTS = [
-  { email: "admin@mathbank.local", password: "123456", full_name: "ผู้ดูแลระบบ", role: "admin" as const },
-  { email: "teacher@mathbank.local", password: "123456", full_name: "ครูสมหญิง", role: "teacher" as const },
-  { email: "student@mathbank.local", password: "123456", full_name: "นักเรียนสมชาย", role: "student" as const },
+  { email: "admin@example.com", password: "123456", full_name: "ผู้ดูแลระบบ", role: "admin" as const },
+  { email: "teacher@example.com", password: "123456", full_name: "ครูสมหญิง", role: "teacher" as const },
+  { email: "student@example.com", password: "123456", full_name: "นักเรียนสมชาย", role: "student" as const },
 ];
+
+type SeedResult = {
+  email: string;
+  role: "admin" | "teacher" | "student";
+  status: "created" | "already_exists" | "failed";
+  message: string;
+};
 
 export default function Auth() {
   const { user, signIn, loading } = useAuth();
@@ -22,6 +29,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedResults, setSeedResults] = useState<SeedResult[]>([]);
 
   if (!loading && user) return <Navigate to="/" replace />;
 
@@ -48,25 +56,25 @@ export default function Auth() {
 
   const seedTestAccounts = async () => {
     setSeeding(true);
-    let created = 0, existed = 0;
-    for (const acc of TEST_ACCOUNTS) {
-      const { error } = await supabase.auth.signUp({
-        email: acc.email,
-        password: acc.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: { full_name: acc.full_name, role: acc.role },
-        },
-      });
-      if (error) {
-        if (/already|registered|exists/i.test(error.message)) existed++;
-        else toast.error(`${acc.email}: ${error.message}`);
-      } else created++;
-    }
-    // signUp auto-signs-in last user; sign out so the user can pick a role
-    await supabase.auth.signOut();
+    setSeedResults([]);
+    const { data, error } = await supabase.functions.invoke<{ results: SeedResult[] }>("seed-demo-users", {
+      method: "POST",
+    });
     setSeeding(false);
-    toast.success(`สร้างบัญชีทดสอบเสร็จ (ใหม่ ${created} / มีอยู่แล้ว ${existed})`);
+
+    if (error || !data?.results) {
+      const message = error?.message ?? "ไม่ได้รับผลลัพธ์จากตัวช่วยสร้างบัญชี";
+      setSeedResults(TEST_ACCOUNTS.map((acc) => ({ ...acc, status: "failed", message })));
+      toast.error("สร้างบัญชีทดสอบไม่สำเร็จ: " + message);
+      return;
+    }
+
+    setSeedResults(data.results);
+    const failed = data.results.filter((result) => result.status === "failed").length;
+    const created = data.results.filter((result) => result.status === "created").length;
+    const existed = data.results.filter((result) => result.status === "already_exists").length;
+    if (failed) toast.error(`สร้างบัญชีทดสอบบางรายการไม่สำเร็จ (${failed} รายการ)`);
+    else toast.success(`บัญชีทดสอบพร้อมใช้งาน (ใหม่ ${created} / มีอยู่แล้ว ${existed})`);
   };
 
   return (
