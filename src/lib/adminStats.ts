@@ -49,10 +49,13 @@ type RetryOptions = {
   timeoutMs?: number;
 };
 
-const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500], timeoutMs: 900 };
+const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 2500 };
+const STATS_RPC_TIMEOUT_MS = 3500;
 
 let classStatsCache: Pick<PrimaryStats, "students" | "classes"> | null = null;
 let usersStatsCache: Pick<PrimaryStats, "admins" | "teachers"> | null = null;
+let summaryCache: SchoolStats | null = null;
+let summaryPromise: Promise<SchoolStats> | null = null;
 
 export const isTransientDbError = (message: string) => /schema cache|Database client|Retrying/i.test(message);
 
@@ -62,6 +65,11 @@ const errorText = (label: string, reason: unknown) => `${label}: ${messageOf(rea
 const withTimeout = async <T,>(promise: SupabaseCall<T>, ms: number, label: string) => Promise.race([
   promise,
   new Promise<SupabaseResult<T>>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
+]);
+
+const withPromiseTimeout = async <T,>(promise: Promise<T>, ms: number, label: string) => Promise.race([
+  promise,
+  new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
 ]);
 
 export const setCachedClassStats = (rows: ClassStatsRow[]) => {
