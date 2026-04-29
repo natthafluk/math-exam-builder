@@ -60,11 +60,12 @@ const App = () => (
             <Route path="/exams/:id/print" element={<Protected><ExamPrint /></Protected>} />
             <Route path="/exams/:id/take" element={<Protected><TakeExam /></Protected>} />
 
+            <Route path="/student-login" element={<StudentLogin />} />
             <Route path="/student" element={<Navigate to="/student/exams" replace />} />
-            <Route path="/student/exams" element={<Protected><StudentExams /></Protected>} />
-            <Route path="/student/exams/:id" element={<Protected><TakeExam /></Protected>} />
-            <Route path="/student/results" element={<Protected><StudentResults /></Protected>} />
-            <Route path="/student/take/:id" element={<Protected><TakeExam /></Protected>} />
+            <Route path="/student/exams" element={<RequireStudent><StudentExamsNew /></RequireStudent>} />
+            <Route path="/student/take/:id" element={<RequireStudent><StudentTakeExam /></RequireStudent>} />
+            <Route path="/student/exams/:id" element={<RequireStudent><StudentTakeExam /></RequireStudent>} />
+            <Route path="/student/results" element={<RequireStudent><StudentExamsNew /></RequireStudent>} />
 
             <Route path="/classes" element={<Protected><ClassesPage /></Protected>} />
             <Route path="/students" element={<Protected><UsersPage /></Protected>} />
