@@ -729,6 +729,7 @@ export type Database = {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
       }
+      is_exam_assigned_to_me: { Args: { _exam_id: string }; Returns: boolean }
       my_approval_status: { Args: never; Returns: string }
       repair_my_profile: {
         Args: never
