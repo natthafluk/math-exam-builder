@@ -48,6 +48,8 @@ interface AssignmentRow {
   due_date: string | null;
   status: string;
   show_explanations: boolean;
+  revealed: boolean;
+  reveal_mode: "manual" | "after_due";
 }
 
 export function StudentExams() {
