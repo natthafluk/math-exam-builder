@@ -35,7 +35,7 @@ type DbUser = {
 
 export default function AdminPage() {
   const { profile: me } = useAuth();
-  const { questions, topics, audit, school, setSchool, addTopic, deleteTopic, updateQuestion } = useStore();
+  const { questions, topics, audit, addTopic, deleteTopic, updateQuestion } = useStore();
   const [newTopic, setNewTopic] = useState({ title: "", grade: "ม.4" });
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
