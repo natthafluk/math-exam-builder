@@ -48,6 +48,7 @@ export default function AdminPage() {
 
   const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
 
   const loadStats = useCallback(async (force = false) => {
@@ -79,13 +80,14 @@ export default function AdminPage() {
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
+    setUsersError(null);
     try {
       const { data } = await retrySupabase<DbUser[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_page_users");
       setDbUsers((data ?? []) as DbUser[]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error("[AdminPage] load users failed:", error);
-      toast.error(`โหลดผู้ใช้ไม่สำเร็จ: ${message}`);
+      setUsersError(`โหลดผู้ใช้ไม่สำเร็จ: ${message}`);
     } finally {
       setUsersLoading(false);
     }
@@ -212,6 +214,17 @@ export default function AdminPage() {
               <TableBody>
                 {usersLoading ? (
                   <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">กำลังโหลด...</TableCell></TableRow>
+                ) : usersError ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                      <div className="space-y-2">
+                        <p>{usersError}</p>
+                        <Button variant="outline" size="sm" onClick={loadUsers} className="gap-1.5">
+                          <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ) : dbUsers.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">ยังไม่มีผู้ใช้</TableCell></TableRow>
                 ) : dbUsers.map((u) => (
