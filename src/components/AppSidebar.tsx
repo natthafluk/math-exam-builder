@@ -4,9 +4,6 @@ import {
   GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload,
 } from "lucide-react";
 import { useStore, roleLabel } from "@/lib/store";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const navByRole = {
