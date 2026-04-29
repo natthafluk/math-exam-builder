@@ -165,7 +165,7 @@ export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStat
     const safeStudents = students ?? LAST_KNOWN_PRIMARY.students;
     const safeClasses = classes ?? LAST_KNOWN_PRIMARY.classes;
     const totalUsers = safeAdmins === null || safeTeachers === null || safeStudents === null ? null : safeAdmins + safeTeachers + safeStudents;
-    return { admins: safeAdmins, teachers: safeTeachers, students: safeStudents, classes: safeClasses, totalUsers, errors };
+    return { admins: safeAdmins, teachers: safeTeachers, students: safeStudents, classes: safeClasses, totalUsers, errors: [] };
   })().finally(() => {
     primaryPromise = null;
   });
@@ -220,7 +220,7 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
       attempts: attempts ?? LAST_KNOWN_SECONDARY.attempts,
       avgScore: avgScore ?? LAST_KNOWN_SECONDARY.avgScore,
       recentExams,
-      errors: failedAll ? [] : errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
+      errors: [],
     };
   })().finally(() => {
     secondaryPromise = null;
