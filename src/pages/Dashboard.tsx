@@ -1,13 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   BookOpen, ClipboardList, Users, TrendingUp, Plus, ArrowRight,
-  GraduationCap, Clock,
+  GraduationCap, Clock, ShieldCheck, UserCog, GraduationCap as GradIcon,
 } from "lucide-react";
 import { MathRender } from "@/components/MathRender";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Dashboard() {
   const { currentUser } = useStore();
