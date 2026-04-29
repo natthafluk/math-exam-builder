@@ -50,6 +50,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [requestedRole, setRequestedRole] = useState<"teacher" | "admin">("teacher");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
   const [seeding, setSeeding] = useState(false);
