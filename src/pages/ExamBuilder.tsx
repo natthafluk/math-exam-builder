@@ -191,9 +191,9 @@ export default function ExamBuilder() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Input type="number" value={q.points} onChange={(e) => setPoints(i, +e.target.value)} className="w-16 h-8" />
                         <span className="text-xs text-muted-foreground">คะแนน</span>
-                        <Button variant="ghost" size="icon" onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => move(i, 1)} disabled={i === draft.questions.length - 1}><ArrowDown className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => removeQuestion(q.questionId)}><X className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label="เลื่อนขึ้น" title="เลื่อนขึ้น"><ArrowUp className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => move(i, 1)} disabled={i === draft.questions.length - 1} aria-label="เลื่อนลง" title="เลื่อนลง"><ArrowDown className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => removeQuestion(q.questionId)} aria-label="ลบออกจากชุด" title="ลบออก"><X className="w-4 h-4" /></Button>
                       </div>
                     </li>
                   );

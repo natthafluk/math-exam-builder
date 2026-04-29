@@ -116,17 +116,17 @@ export default function QuestionBank() {
                   )}
                 </div>
                 <div className="flex md:flex-col gap-1 shrink-0">
-                  <Button asChild variant="ghost" size="icon" title="แก้ไข">
+                  <Button asChild variant="ghost" size="icon" title="แก้ไข" aria-label={`แก้ไขข้อสอบ ${q.title}`}>
                     <Link to={`/questions/${q.id}`}><Edit3 className="w-4 h-4" /></Link>
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => duplicate(q)} title="ทำสำเนา">
+                  <Button variant="ghost" size="icon" onClick={() => duplicate(q)} title="ทำสำเนา" aria-label={`ทำสำเนาข้อสอบ ${q.title}`}>
                     <Copy className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => archive(q)} title="เก็บถาวร">
+                  <Button variant="ghost" size="icon" onClick={() => archive(q)} title="เก็บถาวร" aria-label={`เก็บถาวรข้อสอบ ${q.title}`}>
                     <Archive className="w-4 h-4" />
                   </Button>
-                  <Button asChild variant="ghost" size="icon" title="ดูตัวอย่าง">
-                    <Link to={`/questions/${q.id}?preview=1`}><Eye className="w-4 h-4" /></Link>
+                  <Button asChild variant="ghost" size="icon" title="ดูตัวอย่าง" aria-label={`ดูตัวอย่างข้อสอบ ${q.title}`}>
+                    <Link to={`/questions/${q.id}/preview`}><Eye className="w-4 h-4" /></Link>
                   </Button>
                 </div>
               </div>
