@@ -15,6 +15,7 @@ const navByRole = {
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
     { to: "/exams", icon: ClipboardList, label: "ข้อสอบทั้งหมด" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนนรวม" },
+    { to: "/reveal", icon: Eye, label: "เปิดเผยผลสอบ" },
     { to: "/analytics", icon: BarChart3, label: "สถิติระบบ" },
     { to: "/settings", icon: Settings, label: "ตั้งค่า" },
   ],
