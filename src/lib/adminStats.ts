@@ -46,9 +46,10 @@ export type SchoolStats = PrimaryStats & SecondaryStats;
 type RetryOptions = {
   maxTries?: number;
   delays?: number[];
+  timeoutMs?: number;
 };
 
-const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500] };
+const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500], timeoutMs: 1200 };
 
 let classStatsCache: Pick<PrimaryStats, "students" | "classes"> | null = null;
 let usersStatsCache: Pick<PrimaryStats, "admins" | "teachers"> | null = null;
@@ -58,6 +59,10 @@ export const isTransientDbError = (message: string) => /schema cache|Database cl
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 const errorText = (label: string, reason: unknown) => `${label}: ${messageOf(reason)}`;
+const withTimeout = async <T,>(promise: SupabaseCall<T>, ms: number, label: string) => Promise.race([
+  promise,
+  new Promise<SupabaseResult<T>>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
+]);
 
 export const setCachedClassStats = (rows: ClassStatsRow[]) => {
   classStatsCache = {
@@ -89,20 +94,21 @@ const loadClassStats = async () => {
 export async function retrySupabase<T>(fn: () => SupabaseCall<T>, label: string, options: RetryOptions = {}) {
   const maxTries = options.maxTries ?? DASHBOARD_RETRY.maxTries;
   const delays = options.delays ?? DASHBOARD_RETRY.delays;
+  const timeoutMs = options.timeoutMs ?? DASHBOARD_RETRY.timeoutMs;
   let lastMessage = "ไม่สามารถเชื่อมต่อฐานข้อมูลได้";
 
   for (let attempt = 1; attempt <= maxTries; attempt += 1) {
     try {
-      const result = await fn();
+      const result = await withTimeout(fn(), timeoutMs, label);
       if (!result.error) return result;
 
       lastMessage = result.error.message ?? lastMessage;
       console.warn(`[${label}] attempt ${attempt}/${maxTries} failed:`, lastMessage);
-      if (!isTransientDbError(lastMessage) || attempt === maxTries) throw new Error(lastMessage);
+      if ((!isTransientDbError(lastMessage) && !/timeout/i.test(lastMessage)) || attempt === maxTries) throw new Error(lastMessage);
     } catch (error) {
       lastMessage = messageOf(error);
       console.warn(`[${label}] attempt ${attempt}/${maxTries} failed:`, lastMessage);
-      if (!isTransientDbError(lastMessage) || attempt === maxTries) throw new Error(lastMessage);
+      if ((!isTransientDbError(lastMessage) && !/timeout/i.test(lastMessage)) || attempt === maxTries) throw new Error(lastMessage);
     }
 
     await wait(delays[attempt - 1] ?? delays[delays.length - 1]);
