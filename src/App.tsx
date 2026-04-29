@@ -31,6 +31,7 @@ import AdminPage from "./pages/AdminPage";
 import ImportQuestions from "./pages/ImportQuestions";
 import RevealControl from "./pages/RevealControl";
 import Approvals from "./pages/Approvals";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
           <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/questions" element={<Protected><QuestionBank /></Protected>} />

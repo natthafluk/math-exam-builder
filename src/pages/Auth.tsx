@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Sigma, Loader2, UserCog, GraduationCap } from "lucide-react";
+import { Sigma, Loader2, UserCog, GraduationCap, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,19 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStudentSession, StudentSession } from "@/lib/studentSession";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const TEST_ACCOUNTS = [
-  { email: "admin@example.com", password: "123456", full_name: "ผู้ดูแลระบบ", role: "admin" as const },
-  { email: "teacher@example.com", password: "123456", full_name: "ครูสมหญิง", role: "teacher" as const },
-  { email: "student@example.com", password: "123456", full_name: "นักเรียนสมชาย", role: "student" as const },
-];
-
-type SeedResult = {
-  email: string;
-  role: "admin" | "teacher" | "student";
-  status: "created" | "already_exists" | "failed";
-  message: string;
-};
 
 interface EnrollmentRow {
   enrollment_id: string;
@@ -35,7 +22,7 @@ interface EnrollmentRow {
 }
 
 type Tab = "staff" | "student";
-type StaffMode = "login" | "signup";
+type StaffMode = "login" | "signup" | "forgot";
 
 export default function Auth() {
   const { user, signIn, loading } = useAuth();
@@ -53,8 +40,7 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [seedResults, setSeedResults] = useState<SeedResult[]>([]);
+  const [resetSent, setResetSent] = useState(false);
 
   // Student state
   const [code, setCode] = useState("");
@@ -106,36 +92,20 @@ export default function Auth() {
     toast.success("สมัครสำเร็จ รอผู้ดูแลอนุมัติ");
   };
 
-  const quickLogin = async (e: string, p: string) => {
-    setEmail(e); setPassword(p);
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return toast.error("กรุณากรอกอีเมล");
     setBusy(true);
-    const { error } = await signIn(e, p);
-    setBusy(false);
-    if (error) toast.error("กรุณากด 'สร้างบัญชีทดสอบ' ก่อน หากยังไม่ได้สร้าง");
-    else nav("/", { replace: true });
-  };
-
-  const seedTestAccounts = async () => {
-    setSeeding(true);
-    setSeedResults([]);
-    const { data, error } = await supabase.functions.invoke<{ results: SeedResult[] }>("seed-demo-users", {
-      method: "POST",
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
     });
-    setSeeding(false);
-
-    if (error || !data?.results) {
-      const message = error?.message ?? "ไม่ได้รับผลลัพธ์จากตัวช่วยสร้างบัญชี";
-      setSeedResults(TEST_ACCOUNTS.map((acc) => ({ ...acc, status: "failed", message })));
-      toast.error("สร้างบัญชีทดสอบไม่สำเร็จ: " + message);
+    setBusy(false);
+    if (error) {
+      toast.error("ส่งอีเมลไม่สำเร็จ: " + error.message);
       return;
     }
-
-    setSeedResults(data.results);
-    const failed = data.results.filter((result) => result.status === "failed").length;
-    const created = data.results.filter((result) => result.status === "created").length;
-    const existed = data.results.filter((result) => result.status === "already_exists").length;
-    if (failed) toast.error(`สร้างบัญชีทดสอบบางรายการไม่สำเร็จ (${failed} รายการ)`);
-    else toast.success(`บัญชีทดสอบพร้อมใช้งาน (ใหม่ ${created} / มีอยู่แล้ว ${existed})`);
+    setResetSent(true);
+    toast.success("ส่งลิงก์เปลี่ยนรหัสผ่านไปยังอีเมลแล้ว");
   };
 
   const handleStudentSearch = async (e: React.FormEvent) => {
@@ -224,6 +194,16 @@ export default function Auth() {
                   กลับไปหน้าเข้าสู่ระบบ
                 </Button>
               </div>
+            ) : resetSent ? (
+              <div className="space-y-3 text-center">
+                <div className="rounded-md bg-primary-soft text-primary p-4 text-sm font-medium">
+                  ✓ ส่งลิงก์เปลี่ยนรหัสผ่านแล้ว<br />
+                  กรุณาตรวจสอบอีเมลของคุณ
+                </div>
+                <Button variant="outline" className="w-full" onClick={() => { setResetSent(false); setStaffMode("login"); }}>
+                  กลับไปหน้าเข้าสู่ระบบ
+                </Button>
+              </div>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-md">
@@ -238,54 +218,94 @@ export default function Auth() {
                     สมัครสมาชิก
                   </button>
                 </div>
-                <form onSubmit={staffMode === "login" ? handleLogin : handleSignup} className="space-y-3">
-                  {staffMode === "signup" && (
-                    <>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="fullname">ชื่อ-นามสกุล</Label>
-                        <Input id="fullname" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น สมหญิง ใจดี" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>บทบาทที่ขอ</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button type="button" onClick={() => setRequestedRole("teacher")}
-                            className={cn("py-2 text-sm rounded-md border transition-colors",
-                              requestedRole === "teacher" ? "border-primary bg-primary-soft text-primary font-medium" : "border-border text-muted-foreground")}>
-                            ครู
-                          </button>
-                          <button type="button" onClick={() => setRequestedRole("admin")}
-                            className={cn("py-2 text-sm rounded-md border transition-colors",
-                              requestedRole === "admin" ? "border-destructive bg-destructive/10 text-destructive font-medium" : "border-border text-muted-foreground")}>
-                            ผู้ดูแลระบบ
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">อีเมล</Label>
-                    <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password">รหัสผ่าน</Label>
-                    <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
-                  </div>
-                  {staffMode === "signup" && (
+
+                {staffMode === "forgot" ? (
+                  <form onSubmit={handleForgot} className="space-y-3">
+                    <p className="text-xs text-muted-foreground">กรอกอีเมลของคุณ ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ไปให้</p>
                     <div className="space-y-1.5">
-                      <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
-                      <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••" />
+                      <Label htmlFor="forgot-email">อีเมล</Label>
+                      <Input id="forgot-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                     </div>
-                  )}
-                  <Button type="submit" className="w-full" disabled={busy}>
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    {staffMode === "login" ? "เข้าสู่ระบบ" : "สมัครและรออนุมัติ"}
-                  </Button>
-                  {staffMode === "signup" && (
-                    <p className="text-[11px] text-muted-foreground text-center">
-                      บัญชีจะใช้งานได้หลังจากผู้ดูแลระบบอนุมัติเท่านั้น
-                    </p>
-                  )}
-                </form>
+                    <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90" disabled={busy}>
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      ส่งลิงก์เปลี่ยนรหัสผ่าน
+                    </Button>
+                    <Button type="button" variant="ghost" className="w-full" onClick={() => setStaffMode("login")}>
+                      ย้อนกลับ
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={staffMode === "login" ? handleLogin : handleSignup} className="space-y-3">
+                    {staffMode === "signup" && (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="fullname">ชื่อ-นามสกุล</Label>
+                          <Input id="fullname" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น สมหญิง ใจดี" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>บทบาทที่ขอ</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setRequestedRole("teacher")}
+                              className={cn("py-2 text-sm rounded-md border transition-colors",
+                                requestedRole === "teacher" ? "border-primary bg-primary-soft text-primary font-medium" : "border-border text-muted-foreground")}>
+                              ครู
+                            </button>
+                            <button type="button" onClick={() => setRequestedRole("admin")}
+                              className={cn("py-2 text-sm rounded-md border transition-colors",
+                                requestedRole === "admin" ? "border-destructive bg-destructive/10 text-destructive font-medium" : "border-border text-muted-foreground")}>
+                              ผู้ดูแลระบบ
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email">อีเมล</Label>
+                      <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">รหัสผ่าน</Label>
+                        {staffMode === "login" && (
+                          <button type="button" onClick={() => setStaffMode("forgot")} className="text-xs text-primary hover:underline">
+                            ลืมรหัสผ่าน?
+                          </button>
+                        )}
+                      </div>
+                      <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+                    </div>
+                    {staffMode === "signup" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
+                        <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••" />
+                      </div>
+                    )}
+                    <Button
+                      type="submit"
+                      disabled={busy}
+                      className={cn(
+                        "w-full text-white shadow-md transition-colors",
+                        staffMode === "login"
+                          ? "bg-primary hover:bg-primary/90"
+                          : "bg-accent hover:bg-accent/90"
+                      )}
+                    >
+                      {busy ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : staffMode === "login" ? (
+                        <LogIn className="w-4 h-4 mr-2" />
+                      ) : (
+                        <UserPlus className="w-4 h-4 mr-2" />
+                      )}
+                      {staffMode === "login" ? "เข้าสู่ระบบ" : "สมัครและรออนุมัติ"}
+                    </Button>
+                    {staffMode === "signup" && (
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        บัญชีจะใช้งานได้หลังจากผู้ดูแลระบบอนุมัติเท่านั้น
+                      </p>
+                    )}
+                  </form>
+                )}
               </>
             )
           ) : !matches ? (
@@ -324,50 +344,6 @@ export default function Auth() {
             </div>
           )}
         </Card>
-
-        {tab === "staff" && (
-          <Card className="p-5 space-y-3 border-dashed">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <UserCog className="w-4 h-4 text-accent" />
-              บัญชีทดสอบ (สำหรับ QA)
-            </div>
-            <Button onClick={seedTestAccounts} variant="outline" className="w-full" disabled={seeding}>
-              {seeding ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              สร้างบัญชีทดสอบทั้งหมด (ครั้งแรกเท่านั้น)
-            </Button>
-            <div className="grid gap-1.5">
-              {TEST_ACCOUNTS.map((a) => (
-                <button
-                  key={a.email}
-                  type="button"
-                  onClick={() => quickLogin(a.email, a.password)}
-                  disabled={busy}
-                  className="flex items-center justify-between text-left px-3 py-2 rounded-md bg-muted/50 hover:bg-muted text-xs transition-colors"
-                >
-                  <span className="font-mono">{a.email}</span>
-                  <span className="chip bg-primary-soft text-primary">
-                    {a.role === "admin" ? "ผู้ดูแล" : a.role === "teacher" ? "ครู" : "นักเรียน"}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {seedResults.length > 0 ? (
-              <div className="space-y-1.5 rounded-md border bg-muted/30 p-3 text-xs">
-                {seedResults.map((result) => (
-                  <div key={result.email} className="flex items-start justify-between gap-3">
-                    <span className="font-mono text-foreground">{result.email}</span>
-                    <span className={result.status === "failed" ? "text-destructive text-right" : "text-muted-foreground text-right"}>
-                      {result.status === "created" ? "สร้างใหม่" : result.status === "already_exists" ? "มีอยู่แล้ว" : "ล้มเหลว"}: {result.message}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <p className="text-[11px] text-muted-foreground">
-              รหัสผ่านสำหรับทุกบัญชี: <span className="font-mono">123456</span>
-            </p>
-          </Card>
-        )}
       </div>
     </div>
   );
