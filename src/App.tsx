@@ -21,6 +21,7 @@ import ClassesPage from "./pages/ClassesPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import ResultsPage from "./pages/ResultsPage";
 import AdminPage from "./pages/AdminPage";
+import ImportQuestions from "./pages/ImportQuestions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/questions" element={<QuestionBank />} />
             <Route path="/questions/new" element={<QuestionEditor />} />
+            <Route path="/questions/import" element={<ImportQuestions />} />
             <Route path="/questions/:id" element={<QuestionEditor />} />
             <Route path="/questions/:id/preview" element={<QuestionPreview />} />
             <Route path="/exams" element={<ExamList />} />
