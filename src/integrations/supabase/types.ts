@@ -858,6 +858,23 @@ export type Database = {
           teacher_name: string
         }[]
       }
+      teacher_create_class: {
+        Args: { _grade_level: string; _name: string; _subject_code?: string }
+        Returns: {
+          created_at: string
+          grade_level: string
+          id: string
+          name: string
+          subject_code: string
+          teacher_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "classes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       teacher_import_roster: {
         Args: { _class_id: string; _rows: Json }
         Returns: number
