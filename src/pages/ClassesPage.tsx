@@ -106,9 +106,13 @@ function CreateClassDialog({ open, onOpenChange, onCreated, teacherId }: { open:
   const submit = async () => {
     if (!name.trim() || !grade.trim()) { toast.error("กรอกชื่อห้องและระดับชั้น"); return; }
     setBusy(true);
-    const { error } = await supabase.from("classes").insert({ name: name.trim(), grade_level: grade.trim(), subject_code: code.trim(), teacher_id: teacherId ?? null });
+    const { error } = await supabase.rpc("teacher_create_class", {
+      _name: name.trim(),
+      _grade_level: grade.trim(),
+      _subject_code: code.trim(),
+    });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error("สร้างห้องเรียนไม่สำเร็จ: " + error.message); return; }
     toast.success("สร้างห้องเรียนแล้ว");
     setName(""); setGrade(""); setCode("");
     onOpenChange(false); onCreated();
