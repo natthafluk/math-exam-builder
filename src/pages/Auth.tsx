@@ -92,7 +92,7 @@ export default function Auth() {
           <form onSubmit={handleLogin} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="email">อีเมล</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@mathbank.local" />
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">รหัสผ่าน</Label>
@@ -130,8 +130,23 @@ export default function Auth() {
               </button>
             ))}
           </div>
+          {seedResults.length > 0 ? (
+            <div className="space-y-1.5 rounded-md border bg-muted/30 p-3 text-xs">
+              {seedResults.map((result) => (
+                <div key={result.email} className="flex items-start justify-between gap-3">
+                  <span className="font-mono text-foreground">{result.email}</span>
+                  <span className={result.status === "failed" ? "text-destructive text-right" : "text-muted-foreground text-right"}>
+                    {result.status === "created" ? "สร้างใหม่" : result.status === "already_exists" ? "มีอยู่แล้ว" : "ล้มเหลว"}: {result.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <p className="text-[11px] text-muted-foreground">
             รหัสผ่านสำหรับทุกบัญชี: <span className="font-mono">123456</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            ใช้อีเมลตัวอย่างมาตรฐาน @example.com เพื่อให้ระบบยืนยันบัญชีทดสอบและเข้าสู่ระบบได้ทันทีในพรีวิว
           </p>
         </Card>
       </div>
