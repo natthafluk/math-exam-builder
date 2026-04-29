@@ -50,25 +50,33 @@ function AdminDash() {
     let cancelled = false;
     (async () => {
       const opts = { count: "exact" as const, head: true };
-      const [aRes, tRes, sRes, qRes, eRes, atRes, cRes, exList] = await Promise.all([
-        supabase.from("profiles").select("id", opts).eq("role", "admin"),
-        supabase.from("profiles").select("id", opts).eq("role", "teacher"),
-        supabase.from("class_students").select("id", opts),
+      const [usersRes, classesRes, qRes, eRes, atRes, exList] = await Promise.all([
+        supabase.rpc("admin_list_users", { _status: null }),
+        supabase.rpc("teacher_list_classes_with_students"),
         supabase.from("questions").select("id", opts),
         supabase.from("exams").select("id", opts),
         supabase.from("attempts").select("id", opts),
-        supabase.from("classes").select("id", opts),
         supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
       ]);
       if (cancelled) return;
+
+      if (usersRes.error) toast.error("โหลดผู้ใช้ไม่สำเร็จ: " + usersRes.error.message);
+      if (classesRes.error) toast.error("โหลดห้องเรียนไม่สำเร็จ: " + classesRes.error.message);
+
+      const users = (usersRes.data ?? []) as Array<{ role: string }>;
+      const classes = (classesRes.data ?? []) as Array<{ student_count: number }>;
+      const admins = users.filter((u) => u.role === "admin").length;
+      const teachers = users.filter((u) => u.role === "teacher").length;
+      const students = classes.reduce((s, c) => s + (Number(c.student_count) || 0), 0);
+
       setStats({
-        admins: aRes.count ?? 0,
-        teachers: tRes.count ?? 0,
-        students: sRes.count ?? 0,
+        admins,
+        teachers,
+        students,
         questions: qRes.count ?? 0,
         exams: eRes.count ?? 0,
         attempts: atRes.count ?? 0,
-        classes: cRes.count ?? 0,
+        classes: classes.length,
       });
       setRecentExams((exList.data ?? []) as any);
     })();
