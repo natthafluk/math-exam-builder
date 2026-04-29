@@ -31,12 +31,6 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const ROLE_BY_EMAIL: Record<string, { role: Role; full_name: string; avatar_color: string }> = {
-  "admin@example.com": { role: "admin", full_name: "ผู้ดูแลระบบ", avatar_color: "bg-destructive" },
-  "teacher@example.com": { role: "teacher", full_name: "ครูสมหญิง", avatar_color: "bg-primary" },
-  "student@example.com": { role: "student", full_name: "นักเรียนสมชาย", avatar_color: "bg-accent" },
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -45,25 +39,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileStatus, setProfileStatus] = useState<ProfileLoadStatus>({ state: "idle" });
 
   const loadProfile = useCallback(async (uid: string) => {
-    setProfileStatus({ state: "loading", message: `กำลังค้นหาโปรไฟล์สำหรับ id=${uid}` });
+    setProfileStatus({ state: "loading", message: `กำลังโหลดโปรไฟล์ผ่าน RPC สำหรับ id=${uid}` });
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, role, avatar_initials, avatar_color")
-        .eq("id", uid)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_my_profile");
       if (error) {
         setProfile(null);
-        setProfileStatus({ state: "error", message: `ผิดพลาดขณะค้นหาโปรไฟล์: ${error.message}` });
+        setProfileStatus({ state: "error", message: `ผิดพลาดขณะโหลดโปรไฟล์ผ่าน RPC: ${error.message}` });
         return;
       }
       if (!data) {
         setProfile(null);
-        setProfileStatus({ state: "missing", message: "ไม่พบแถวโปรไฟล์ที่ตรงกับบัญชีนี้" });
+        setProfileStatus({ state: "missing", message: "RPC ทำงานแล้ว แต่ยังไม่พบโปรไฟล์ที่ตรงกับบัญชีนี้" });
         return;
       }
       setProfile(data as Profile);
-      setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
+      setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
     } catch (e) {
       setProfile(null);
       setProfileStatus({ state: "error", message: e instanceof Error ? e.message : String(e) });
@@ -103,22 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const repairProfile = useCallback(async (): Promise<{ error: string | null }> => {
     if (!user) return { error: "ยังไม่ได้เข้าสู่ระบบ" };
-    const email = (user.email ?? "").toLowerCase();
-    const mapped = ROLE_BY_EMAIL[email];
-    const full_name = mapped?.full_name ?? user.user_metadata?.full_name ?? email.split("@")[0] ?? "ผู้ใช้งาน";
-    const role: Role = mapped?.role ?? (user.user_metadata?.role as Role) ?? "student";
-    const avatar_color = mapped?.avatar_color ?? (role === "admin" ? "bg-destructive" : role === "teacher" ? "bg-primary" : "bg-accent");
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
-      email,
-      full_name,
-      role,
-      avatar_initials: full_name.slice(0, 1).toUpperCase(),
-      avatar_color,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "id" });
-    if (error) return { error: error.message };
-    await loadProfile(user.id);
+    setProfileStatus({ state: "loading", message: "กำลังซ่อมโปรไฟล์ผ่าน RPC" });
+    const { data, error } = await supabase.rpc("repair_my_profile");
+    if (error) {
+      setProfile(null);
+      setProfileStatus({ state: "error", message: `ซ่อมโปรไฟล์ผ่าน RPC ไม่สำเร็จ: ${error.message}` });
+      return { error: error.message };
+    }
+    if (data) {
+      setProfile(data as Profile);
+      setProfileStatus({ state: "ok", message: "ซ่อมและโหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
+    } else {
+      await loadProfile(user.id);
+    }
     return { error: null };
   }, [user, loadProfile]);
 
