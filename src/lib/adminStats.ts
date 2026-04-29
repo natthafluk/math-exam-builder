@@ -177,9 +177,9 @@ const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
   errors,
 });
 
-export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
+export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStats> {
   try {
-    const summary = await loadDashboardSummary();
+    const summary = await loadDashboardSummary(force);
     return {
       admins: summary.admins,
       teachers: summary.teachers,
@@ -193,9 +193,9 @@ export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
   }
 }
 
-export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
+export async function loadSecondarySchoolStats(force = false): Promise<SecondaryStats> {
   try {
-    const summary = await loadDashboardSummary();
+    const summary = await loadDashboardSummary(force);
     return {
       questions: summary.questions,
       exams: summary.exams,
@@ -209,9 +209,9 @@ export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
   }
 }
 
-export async function loadSchoolStats(): Promise<SchoolStats> {
+export async function loadSchoolStats(force = false): Promise<SchoolStats> {
   try {
-    return await loadDashboardSummary();
+    return await loadDashboardSummary(force);
   } catch (summaryError) {
     const primary = emptyPrimary([errorText("โหลดสถิติหลักไม่สำเร็จ", summaryError)]);
     return { ...primary, questions: null, exams: null, attempts: null, avgScore: null, recentExams: [], errors: primary.errors };
