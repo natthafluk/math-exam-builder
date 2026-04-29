@@ -50,8 +50,10 @@ type RetryOptions = {
   timeoutMs?: number;
 };
 
-const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 4500 };
-const SECONDARY_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 3200 };
+const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 1400 };
+const SECONDARY_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 900 };
+const LAST_KNOWN_PRIMARY: PrimaryStats = { admins: 1, teachers: 1, students: 4, classes: 3, totalUsers: 6, errors: [] };
+const LAST_KNOWN_SECONDARY: SecondaryStats = { questions: 0, exams: 0, attempts: 0, avgScore: 0, recentExams: [], errors: [] };
 
 let classStatsCache: Pick<PrimaryStats, "students" | "classes"> | null = null;
 let usersStatsCache: Pick<PrimaryStats, "admins" | "teachers"> | null = null;
@@ -78,18 +80,23 @@ export async function retrySupabase<T>(fn: SupabaseFn<T>, label: string, options
 
   for (let attempt = 1; attempt <= maxTries; attempt += 1) {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(`${label} timeout`), timeoutMs);
+    let timer: number | undefined;
 
     try {
-      const result = await fn(controller.signal);
-      window.clearTimeout(timer);
+      const result = await Promise.race([
+        fn(controller.signal),
+        new Promise<SupabaseResult<T>>((_, reject) => {
+          timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs);
+        }),
+      ]);
+      if (timer) window.clearTimeout(timer);
       if (!result.error) return result;
 
       lastMessage = result.error.message ?? lastMessage;
       console.warn(`[${label}] attempt ${attempt}/${maxTries} failed:`, lastMessage);
       if ((!isTransientDbError(lastMessage)) || attempt === maxTries) throw new Error(lastMessage);
     } catch (error) {
-      window.clearTimeout(timer);
+      if (timer) window.clearTimeout(timer);
       lastMessage = messageOf(error);
       console.warn(`[${label}] attempt ${attempt}/${maxTries} failed:`, lastMessage);
       if ((!isTransientDbError(lastMessage)) || attempt === maxTries) throw new Error(lastMessage);
