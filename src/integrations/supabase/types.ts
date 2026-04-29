@@ -528,6 +528,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_profile: {
+        Args: never
+        Returns: {
+          avatar_color: string | null
+          avatar_initials: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -542,6 +561,25 @@ export type Database = {
       is_class_teacher: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
+      }
+      repair_my_profile: {
+        Args: never
+        Returns: {
+          avatar_color: string | null
+          avatar_initials: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
