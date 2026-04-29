@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, ReactNode, useCallback, useEffect } from "react";
 import type { Attempt, ClassRoom, Exam, Question, Role, Topic, User, AuditEntry, SchoolSettings } from "./types";
 import {
-  seedAttempts, seedClasses, seedExams, seedQuestions, seedTopics, seedUsers, seedAudit, seedSchool,
+  seedAttempts, seedClasses, seedExams, seedQuestions, seedTopics, seedAudit, seedSchool,
 } from "./seed";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
