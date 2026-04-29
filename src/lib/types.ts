@@ -31,16 +31,16 @@ export interface ClassRoom {
 
 export interface Choice {
   id: string;
-  text: string; // LaTeX-enabled markdown
+  text: string;
 }
 
 export interface Question {
   id: string;
   title: string;
-  body: string; // LaTeX markdown
+  body: string;
   type: QuestionType;
   choices?: Choice[];
-  correctAnswer: string; // choice id, or text, or "true"/"false"
+  correctAnswer: string;
   explanation: string;
   gradeLevel: string;
   topicId: string;
@@ -48,6 +48,8 @@ export interface Question {
   tags: string[];
   status: QuestionStatus;
   authorId: string;
+  lastEditedBy?: string;
+  reviewedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +58,14 @@ export interface ExamQuestionRef {
   questionId: string;
   order: number;
   points: number;
+}
+
+export interface ExamSettings {
+  randomizeQuestionOrder: boolean;
+  randomizeChoices: boolean;
+  allowLateSubmission: boolean;
+  showScoreImmediately: boolean;
+  showExplanationsAfterClose: boolean;
 }
 
 export interface Exam {
@@ -69,6 +79,7 @@ export interface Exam {
   dueDate: string;
   showExplanations: boolean;
   status: "draft" | "assigned" | "closed";
+  settings?: ExamSettings;
   createdAt: string;
 }
 
@@ -81,4 +92,21 @@ export interface Attempt {
   maxScore: number;
   submittedAt?: string;
   status: "in_progress" | "submitted" | "graded";
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actorId: string;
+  actorName: string;
+  action: string;
+  target?: string;
+  tone?: "default" | "success" | "warning" | "destructive";
+}
+
+export interface SchoolSettings {
+  schoolName: string;
+  department: string;
+  academicYear: string;
+  semester: string;
 }

@@ -18,7 +18,7 @@ import type { Role, QuestionStatus } from "@/lib/types";
 
 export default function AdminPage() {
   const {
-    users, questions, exams, attempts, topics,
+    users, questions, exams, attempts, topics, audit, school, setSchool,
     setUserRole, addUser, deleteUser, addTopic, deleteTopic, updateQuestion,
   } = useStore();
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "teacher" as Role });
@@ -71,7 +71,7 @@ export default function AdminPage() {
   };
 
   return (
-    <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ">
+    <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ" breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ศูนย์ผู้ดูแล" }]}>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (
           <Card key={s.label} className="p-5 flex items-start gap-3">
@@ -85,6 +85,28 @@ export default function AdminPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="p-5 mb-6">
+        <h3 className="font-semibold mb-3">ข้อมูลโรงเรียน</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground">ชื่อโรงเรียน</label>
+            <Input value={school.schoolName} onChange={(e) => setSchool({ ...school, schoolName: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">กลุ่มสาระ</label>
+            <Input value={school.department} onChange={(e) => setSchool({ ...school, department: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">ปีการศึกษา</label>
+            <Input value={school.academicYear} onChange={(e) => setSchool({ ...school, academicYear: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">ภาคเรียน</label>
+            <Input value={school.semester} onChange={(e) => setSchool({ ...school, semester: e.target.value })} className="mt-1" />
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-5 mb-6">
         <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -255,6 +277,27 @@ export default function AdminPage() {
           </ul>
         </Card>
       </div>
+
+      <Card className="p-5 mt-6">
+        <h3 className="font-semibold mb-3">ไทม์ไลน์การใช้งานระบบ (Audit Log)</h3>
+        <ul className="space-y-3">
+          {audit.slice(0, 10).map((a) => {
+            const tone: Record<string, string> = {
+              success: "bg-success", warning: "bg-warning", destructive: "bg-destructive", default: "bg-primary",
+            };
+            return (
+              <li key={a.id} className="flex gap-3">
+                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${tone[a.tone ?? "default"]}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm"><span className="font-medium">{a.actorName}</span> — {a.action}</div>
+                  {a.target && <div className="text-xs text-muted-foreground truncate">{a.target}</div>}
+                  <div className="text-[11px] text-muted-foreground">{new Date(a.at).toLocaleString("th-TH")}</div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
     </AppLayout>
   );
 }

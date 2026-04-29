@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
@@ -11,64 +11,87 @@ import { MathRender } from "@/components/MathRender";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ArrowLeft, Save } from "lucide-react";
+import { Trash2, Plus, ArrowLeft, Save, CheckCircle2, Circle, Send } from "lucide-react";
 import { toast } from "sonner";
+import { validateMath } from "@/lib/mathValidate";
 import type { Choice, Difficulty, Question, QuestionStatus, QuestionType } from "@/lib/types";
 
 export default function QuestionEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { questions, topics, currentUser, addQuestion, updateQuestion } = useStore();
+  const { questions, topics, users, currentUser, addQuestion, updateQuestion, logAudit } = useStore();
   const existing = id && id !== "new" ? questions.find((x) => x.id === id) : undefined;
 
   const [draft, setDraft] = useState<Question>(
     existing ?? {
-      id: `q-${Date.now()}`,
-      title: "",
-      body: "",
-      type: "mcq",
+      id: `q-${Date.now()}`, title: "", body: "", type: "mcq",
       choices: [
         { id: "a", text: "" }, { id: "b", text: "" },
         { id: "c", text: "" }, { id: "d", text: "" },
       ],
-      correctAnswer: "a",
-      explanation: "",
-      gradeLevel: "ม.4",
-      topicId: topics[0]?.id ?? "",
-      difficulty: "medium",
-      tags: [],
-      status: "draft",
-      authorId: currentUser.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      correctAnswer: "a", explanation: "",
+      gradeLevel: "ม.4", topicId: topics[0]?.id ?? "",
+      difficulty: "medium", tags: [],
+      status: "draft", authorId: currentUser.id, lastEditedBy: currentUser.id,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     }
   );
   const [tagInput, setTagInput] = useState("");
 
-  const set = <K extends keyof Question>(k: K, v: Question[K]) =>
-    setDraft((d) => ({ ...d, [k]: v }));
+  const set = <K extends keyof Question>(k: K, v: Question[K]) => setDraft((d) => ({ ...d, [k]: v }));
+
+  const checklist = useMemo(() => {
+    const allMath = [draft.body, draft.explanation, ...(draft.choices ?? []).map(c => c.text)].join("\n");
+    const mathOk = validateMath(allMath).length === 0;
+    return [
+      { ok: !!draft.title.trim() && !!draft.body.trim(), label: "มีชื่อโจทย์และเนื้อหา" },
+      { ok: !!draft.topicId, label: "เลือกหัวข้อแล้ว" },
+      { ok: !!draft.difficulty, label: "ระบุระดับความยาก" },
+      { ok: hasCorrectAnswer(draft), label: "กำหนดคำตอบที่ถูกต้อง" },
+      { ok: !!draft.explanation.trim(), label: "มีคำอธิบายเฉลย" },
+      { ok: mathOk, label: "สูตรคณิตศาสตร์ถูกต้อง" },
+    ];
+  }, [draft]);
+
+  const ready = checklist.every(c => c.ok);
 
   const save = (status?: QuestionStatus) => {
     if (!draft.title.trim() || !draft.body.trim()) {
       toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์");
       return;
     }
-    const next = { ...draft, status: status ?? draft.status, updatedAt: new Date().toISOString() };
+    const next: Question = {
+      ...draft,
+      status: status ?? draft.status,
+      lastEditedBy: currentUser.id,
+      reviewedBy: status === "published" ? currentUser.id : draft.reviewedBy,
+      updatedAt: new Date().toISOString(),
+    };
     existing ? updateQuestion(next) : addQuestion(next);
+    if (status === "review") logAudit({ action: "ส่งข้อสอบให้ตรวจ", target: next.title, tone: "warning" });
+    if (status === "published") logAudit({ action: existing ? "อัปเดตข้อสอบ" : "เผยแพร่ข้อสอบใหม่", target: next.title, tone: "success" });
     toast.success(existing ? "บันทึกการแก้ไขแล้ว" : "เพิ่มข้อใหม่เข้าคลังแล้ว");
     navigate("/questions");
   };
 
+  const author = users.find(u => u.id === draft.authorId);
+  const editor = users.find(u => u.id === draft.lastEditedBy);
+  const reviewer = users.find(u => u.id === draft.reviewedBy);
+
   return (
     <AppLayout
       title={existing ? "แก้ไขข้อสอบ" : "สร้างข้อสอบใหม่"}
+      breadcrumbs={[
+        { label: "หน้าหลัก", to: "/" },
+        { label: "คลังข้อสอบ", to: "/questions" },
+        { label: existing ? "แก้ไข" : "สร้างใหม่" },
+      ]}
       actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)} className="gap-1.5">
-            <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
-          </Button>
-          <Button variant="secondary" onClick={() => save("draft")}>บันทึกฉบับร่าง</Button>
-          <Button onClick={() => save("published")} className="gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> ย้อนกลับ</Button>
+          <Button variant="secondary" size="sm" onClick={() => save("draft")}>บันทึกร่าง</Button>
+          <Button variant="outline" size="sm" onClick={() => save("review")} className="gap-1.5"><Send className="w-3.5 h-3.5" /> ส่งตรวจ</Button>
+          <Button size="sm" onClick={() => save("published")} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนเผยแพร่" : undefined}>
             <Save className="w-4 h-4" /> เผยแพร่
           </Button>
         </div>
@@ -81,11 +104,7 @@ export default function QuestionEditor() {
               <Label>ชื่อข้อสอบ</Label>
               <Input value={draft.title} onChange={(e) => set("title", e.target.value)} placeholder="เช่น สมการกำลังสอง" className="mt-1.5" />
             </div>
-            <FormulaEditor
-              label="เนื้อโจทย์"
-              value={draft.body}
-              onChange={(v) => set("body", v)}
-            />
+            <FormulaEditor label="เนื้อโจทย์" value={draft.body} onChange={(v) => set("body", v)} />
           </Card>
 
           <Card className="p-5 space-y-4">
@@ -113,16 +132,8 @@ export default function QuestionEditor() {
             {draft.type === "tf" && (
               <div className="flex gap-3">
                 {(["true", "false"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => set("correctAnswer", v)}
-                    className={`flex-1 px-4 py-3 rounded-md border text-sm font-medium transition-colors ${
-                      draft.correctAnswer === v
-                        ? "border-primary bg-primary-soft text-primary"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
+                  <button key={v} type="button" onClick={() => set("correctAnswer", v)}
+                    className={`flex-1 px-4 py-3 rounded-md border text-sm font-medium transition-colors ${draft.correctAnswer === v ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-muted"}`}>
                     {v === "true" ? "✓ ถูก" : "✗ ผิด"}
                   </button>
                 ))}
@@ -131,35 +142,35 @@ export default function QuestionEditor() {
             {draft.type === "short" && (
               <div>
                 <Label>คำตอบที่ถูกต้อง</Label>
-                <Input
-                  value={draft.correctAnswer}
-                  onChange={(e) => set("correctAnswer", e.target.value)}
-                  placeholder="เช่น 12x^3 - 4x + 5"
-                  className="mt-1.5 font-mono"
-                />
+                <Input value={draft.correctAnswer} onChange={(e) => set("correctAnswer", e.target.value)} placeholder="เช่น 12x^3 - 4x + 5" className="mt-1.5 font-mono" />
               </div>
             )}
             {draft.type === "written" && (
-              <FormulaEditor
-                label="แนวคำตอบ / เกณฑ์การให้คะแนน"
-                value={draft.correctAnswer}
-                onChange={(v) => set("correctAnswer", v)}
-                rows={4}
-              />
+              <FormulaEditor label="แนวคำตอบ / เกณฑ์การให้คะแนน" value={draft.correctAnswer} onChange={(v) => set("correctAnswer", v)} rows={4} />
             )}
           </Card>
 
           <Card className="p-5">
-            <FormulaEditor
-              label="คำอธิบายเฉลย"
-              value={draft.explanation}
-              onChange={(v) => set("explanation", v)}
-              rows={4}
-            />
+            <FormulaEditor label="คำอธิบายเฉลย" value={draft.explanation} onChange={(v) => set("explanation", v)} rows={4} />
           </Card>
         </div>
 
         <div className="space-y-5">
+          <Card className="p-5">
+            <h3 className="font-semibold mb-3">รายการคุณภาพ</h3>
+            <ul className="space-y-2">
+              {checklist.map((c, i) => (
+                <li key={i} className={`flex items-start gap-2 text-sm ${c.ok ? "text-success" : "text-muted-foreground"}`}>
+                  {c.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" /> : <Circle className="w-4 h-4 mt-0.5 shrink-0" />}
+                  <span>{c.label}</span>
+                </li>
+              ))}
+            </ul>
+            <div className={`mt-3 p-2.5 rounded-md text-xs ${ready ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+              {ready ? "พร้อมเผยแพร่" : "ยังไม่พร้อมเผยแพร่ — แก้ไขรายการที่ขาด"}
+            </div>
+          </Card>
+
           <Card className="p-5 space-y-4">
             <h3 className="font-semibold">รายละเอียด</h3>
             <div>
@@ -167,9 +178,7 @@ export default function QuestionEditor() {
               <Select value={draft.gradeLevel} onValueChange={(v) => set("gradeLevel", v)}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ม.4">ม.4</SelectItem>
-                  <SelectItem value="ม.5">ม.5</SelectItem>
-                  <SelectItem value="ม.6">ม.6</SelectItem>
+                  {["ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -177,11 +186,7 @@ export default function QuestionEditor() {
               <Label>หัวข้อ</Label>
               <Select value={draft.topicId} onValueChange={(v) => set("topicId", v)}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {topics.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{topics.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -201,23 +206,26 @@ export default function QuestionEditor() {
                 {draft.tags.map((t) => (
                   <span key={t} className="chip bg-secondary text-secondary-foreground gap-1">
                     #{t}
-                    <button onClick={() => set("tags", draft.tags.filter((x) => x !== t))} className="hover:text-destructive">×</button>
+                    <button onClick={() => set("tags", draft.tags.filter((x) => x !== t))} className="hover:text-destructive" aria-label={`ลบแท็ก ${t}`}>×</button>
                   </span>
                 ))}
               </div>
               <div className="flex gap-2">
                 <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="เพิ่มแท็ก..." onKeyDown={(e) => {
-                  if (e.key === "Enter" && tagInput.trim()) {
-                    e.preventDefault();
-                    set("tags", [...draft.tags, tagInput.trim()]);
-                    setTagInput("");
-                  }
+                  if (e.key === "Enter" && tagInput.trim()) { e.preventDefault(); set("tags", [...draft.tags, tagInput.trim()]); setTagInput(""); }
                 }} />
-                <Button type="button" variant="outline" size="icon" onClick={() => {
+                <Button type="button" variant="outline" size="icon" aria-label="เพิ่มแท็ก" onClick={() => {
                   if (tagInput.trim()) { set("tags", [...draft.tags, tagInput.trim()]); setTagInput(""); }
                 }}><Plus className="w-4 h-4" /></Button>
               </div>
             </div>
+          </Card>
+
+          <Card className="p-5 text-xs space-y-1.5">
+            <h3 className="font-semibold text-sm mb-2">ประวัติเวอร์ชัน</h3>
+            <Row label="สร้างโดย" value={author?.name ?? "—"} sub={new Date(draft.createdAt).toLocaleString("th-TH")} />
+            <Row label="แก้ไขล่าสุด" value={editor?.name ?? "—"} sub={new Date(draft.updatedAt).toLocaleString("th-TH")} />
+            <Row label="ตรวจสอบโดย" value={reviewer?.name ?? "ยังไม่ได้รับการตรวจ"} />
           </Card>
 
           <Card className="p-5">
@@ -228,9 +236,7 @@ export default function QuestionEditor() {
               {draft.type === "mcq" && (
                 <ol className="mt-3 space-y-1.5 list-[lower-alpha] pl-5">
                   {(draft.choices ?? []).map((c) => (
-                    <li key={c.id}>
-                      <MathRender text={c.text || "—"} />
-                    </li>
+                    <li key={c.id}><MathRender text={c.text || "—"} /></li>
                   ))}
                 </ol>
               )}
@@ -242,35 +248,42 @@ export default function QuestionEditor() {
   );
 }
 
+function Row({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <div className="text-right">
+        <div className="font-medium text-foreground">{value}</div>
+        {sub && <div className="text-[10px] text-muted-foreground">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function hasCorrectAnswer(q: Question): boolean {
+  if (q.type === "mcq") return !!q.correctAnswer && !!(q.choices ?? []).find(c => c.id === q.correctAnswer && c.text.trim());
+  if (q.type === "tf") return q.correctAnswer === "true" || q.correctAnswer === "false";
+  return !!q.correctAnswer.trim();
+}
+
 function ChoicesEditor({ choices, onChange, correct, setCorrect }: {
-  choices: Choice[]; onChange: (c: Choice[]) => void;
-  correct: string; setCorrect: (v: string) => void;
+  choices: Choice[]; onChange: (c: Choice[]) => void; correct: string; setCorrect: (v: string) => void;
 }) {
-  const update = (idx: number, text: string) => {
-    onChange(choices.map((c, i) => (i === idx ? { ...c, text } : c)));
-  };
-  const add = () => {
-    const id = String.fromCharCode(97 + choices.length);
-    onChange([...choices, { id, text: "" }]);
-  };
+  const update = (idx: number, text: string) => onChange(choices.map((c, i) => (i === idx ? { ...c, text } : c)));
+  const add = () => onChange([...choices, { id: String.fromCharCode(97 + choices.length), text: "" }]);
   const remove = (idx: number) => onChange(choices.filter((_, i) => i !== idx));
 
   return (
     <div className="space-y-2">
       {choices.map((c, i) => (
         <div key={c.id} className="flex items-start gap-2">
-          <button
-            type="button"
-            onClick={() => setCorrect(c.id)}
-            className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-semibold shrink-0 transition-colors ${
-              correct === c.id ? "border-success bg-success text-white" : "border-border hover:border-primary"
-            }`}
-            title="ตั้งเป็นคำตอบที่ถูก"
-          >
+          <button type="button" onClick={() => setCorrect(c.id)}
+            className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-semibold shrink-0 transition-colors ${correct === c.id ? "border-success bg-success text-white" : "border-border hover:border-primary"}`}
+            title="ตั้งเป็นคำตอบที่ถูก" aria-label={`ตั้งตัวเลือก ${c.id} เป็นคำตอบ`}>
             {c.id.toUpperCase()}
           </button>
           <Input value={c.text} onChange={(e) => update(i, e.target.value)} placeholder="ใช้ $...$ สำหรับสูตร" className="font-mono text-sm" />
-          <Button variant="ghost" size="icon" onClick={() => remove(i)}><Trash2 className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => remove(i)} aria-label={`ลบตัวเลือก ${c.id}`}><Trash2 className="w-4 h-4" /></Button>
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="w-3.5 h-3.5" /> เพิ่มตัวเลือก</Button>

@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FilePlus2, ClipboardList, Users,
-  GraduationCap, Settings, BarChart3, Sigma,
+  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload,
 } from "lucide-react";
 import { useStore, roleLabel } from "@/lib/store";
 import {
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 const navByRole = {
   admin: [
     { to: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
-    { to: "/admin", icon: Users, label: "ศูนย์ผู้ดูแล" },
+    { to: "/admin", icon: ShieldCheck, label: "ศูนย์ผู้ดูแล" },
     { to: "/users", icon: Users, label: "ผู้ใช้และบทบาท" },
     { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
@@ -25,12 +25,12 @@ const navByRole = {
     { to: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
     { to: "/questions/new", icon: FilePlus2, label: "สร้างข้อสอบ" },
+    { to: "/questions/import", icon: Upload, label: "นำเข้าข้อสอบ" },
     { to: "/exams", icon: ClipboardList, label: "ชุดข้อสอบ" },
     { to: "/exams/new", icon: FilePlus2, label: "สร้างชุดข้อสอบ" },
     { to: "/assignments", icon: ClipboardList, label: "งานที่มอบหมาย" },
     { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนน" },
-    { to: "/analytics", icon: BarChart3, label: "สถิติ" },
   ],
   student: [
     { to: "/", icon: LayoutDashboard, label: "หน้าหลัก" },
@@ -38,6 +38,12 @@ const navByRole = {
     { to: "/student/results", icon: GraduationCap, label: "ผลคะแนน" },
   ],
 } as const;
+
+const roleTone: Record<string, string> = {
+  admin: "bg-destructive/15 text-destructive",
+  teacher: "bg-primary-soft text-primary",
+  student: "bg-accent-soft text-accent",
+};
 
 export function AppSidebar() {
   const { currentUser, setCurrentUserId, users } = useStore();
@@ -56,7 +62,13 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
+      <div className="px-3 pt-3">
+        <div className={cn("text-[10px] uppercase tracking-wider px-2 py-1 rounded-md inline-flex items-center gap-1.5 font-semibold", roleTone[currentUser.role])}>
+          โหมด: {roleLabel[currentUser.role]}
+        </div>
+      </div>
+
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
         {items.map((it) => {
           const active = location.pathname === it.to ||
             (it.to !== "/" && location.pathname.startsWith(it.to));
@@ -83,7 +95,7 @@ export function AppSidebar() {
           สลับบทบาท (เดโม)
         </div>
         <Select value={currentUser.id} onValueChange={setCurrentUserId}>
-          <SelectTrigger className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground">
+          <SelectTrigger className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground" aria-label="สลับบทบาทผู้ใช้">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
