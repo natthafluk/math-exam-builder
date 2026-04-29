@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FilePlus2, ClipboardList, Users,
-  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload, Eye,
+  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload, Eye, UserCheck,
 } from "lucide-react";
 import { useStore, roleLabel } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ const navByRole = {
   admin: [
     { to: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
     { to: "/admin", icon: ShieldCheck, label: "ศูนย์ผู้ดูแล" },
+    { to: "/approvals", icon: UserCheck, label: "อนุมัติผู้ใช้" },
     { to: "/users", icon: Users, label: "ผู้ใช้และบทบาท" },
     { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
