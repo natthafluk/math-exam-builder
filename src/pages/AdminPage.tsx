@@ -82,7 +82,15 @@ export default function AdminPage() {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const { data } = await retrySupabase<DbUser[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_page_users");
+      const { data } = await retrySupabase<DbUser[]>(
+        (signal) => supabase
+          .from("profiles")
+          .select("id, email, full_name, role, requested_role, approval_status, is_super_admin, created_at")
+          .order("created_at", { ascending: false })
+          .abortSignal(signal),
+        "admin_page_users",
+        { maxTries: 1, timeoutMs: 3500 }
+      );
       setDbUsers((data ?? []) as DbUser[]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
