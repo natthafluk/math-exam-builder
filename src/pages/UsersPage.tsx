@@ -29,14 +29,19 @@ export default function UsersPage() {
       const { data, error } = await supabase.rpc("admin_list_users", { _status: null });
       if (cancelled) return;
       if (error) toast.error("โหลดผู้ใช้ไม่สำเร็จ: " + error.message);
-      setUsers((data ?? []) as DbUser[]);
+      // Show only auth users (admin/teacher). Students are managed via "ห้องเรียน".
+      const filtered = ((data ?? []) as DbUser[]).filter((u) => u.role === "admin" || u.role === "teacher");
+      setUsers(filtered);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
 
   return (
-    <AppLayout title="ผู้ใช้และบทบาท">
+    <AppLayout title="ผู้ใช้ระบบและบทบาท">
+      <div className="text-sm text-muted-foreground mb-3">
+        แสดงเฉพาะผู้ดูแลระบบและครูที่ล็อกอินด้วยอีเมล/รหัสผ่าน — นักเรียนจัดการผ่านเมนู “ห้องเรียน”
+      </div>
       <Card className="p-0 overflow-hidden">
         {loading ? (
           <div className="p-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>

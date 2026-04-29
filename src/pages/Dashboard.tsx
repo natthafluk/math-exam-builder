@@ -42,7 +42,7 @@ function Stat({ icon: Icon, label, value, hint, tone = "primary" }: any) {
 function AdminDash() {
   const [stats, setStats] = useState<{
     admins: number; teachers: number; students: number;
-    questions: number; exams: number; attempts: number;
+    questions: number; exams: number; attempts: number; classes: number;
   } | null>(null);
   const [recentExams, setRecentExams] = useState<Array<{ id: string; title: string; status: string; time_limit_minutes: number }>>([]);
 
@@ -50,13 +50,14 @@ function AdminDash() {
     let cancelled = false;
     (async () => {
       const opts = { count: "exact" as const, head: true };
-      const [aRes, tRes, sRes, qRes, eRes, atRes, exList] = await Promise.all([
+      const [aRes, tRes, sRes, qRes, eRes, atRes, cRes, exList] = await Promise.all([
         supabase.from("profiles").select("id", opts).eq("role", "admin"),
         supabase.from("profiles").select("id", opts).eq("role", "teacher"),
-        supabase.from("profiles").select("id", opts).eq("role", "student"),
+        supabase.from("class_students").select("id", opts),
         supabase.from("questions").select("id", opts),
         supabase.from("exams").select("id", opts),
         supabase.from("attempts").select("id", opts),
+        supabase.from("classes").select("id", opts),
         supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
       ]);
       if (cancelled) return;
@@ -67,6 +68,7 @@ function AdminDash() {
         questions: qRes.count ?? 0,
         exams: eRes.count ?? 0,
         attempts: atRes.count ?? 0,
+        classes: cRes.count ?? 0,
       });
       setRecentExams((exList.data ?? []) as any);
     })();
@@ -84,10 +86,11 @@ function AdminDash() {
         <Stat icon={TrendingUp} label="การทำข้อสอบ" value={stats?.attempts ?? 0} tone="warning" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
         <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={stats?.admins ?? 0} tone="primary" />
         <Stat icon={UserCog} label="ครู" value={stats?.teachers ?? 0} tone="accent" />
-        <Stat icon={GraduationCap} label="นักเรียน" value={stats?.students ?? 0} tone="success" />
+        <Stat icon={GraduationCap} label="นักเรียน" value={stats?.students ?? 0} hint="จากทะเบียนห้องเรียน" tone="success" />
+        <Stat icon={GraduationCap} label="ห้องเรียน" value={stats?.classes ?? 0} tone="warning" />
       </div>
 
       <div className="mt-6">
