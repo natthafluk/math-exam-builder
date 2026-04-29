@@ -6,6 +6,8 @@ type SupabaseResult<T = unknown> = {
   count?: number | null;
 };
 
+type SupabaseCall<T = unknown> = PromiseLike<SupabaseResult<T>>;
+
 export type AdminUserRow = {
   id: string;
   email: string | null;
@@ -40,7 +42,7 @@ export const isTransientDbError = (message: string) => /schema cache|Database cl
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 
-export async function retrySupabase<T>(fn: () => Promise<SupabaseResult<T>>, label: string, maxRetries = 5) {
+export async function retrySupabase<T>(fn: () => SupabaseCall<T>, label: string, maxRetries = 5) {
   let lastMessage = "ไม่สามารถเชื่อมต่อฐานข้อมูลได้";
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
@@ -68,7 +70,7 @@ export async function retrySupabase<T>(fn: () => Promise<SupabaseResult<T>>, lab
   throw new Error(lastMessage);
 }
 
-const countResult = async (label: string, query: () => Promise<SupabaseResult>) => {
+const countResult = async (label: string, query: () => SupabaseCall) => {
   const result = await retrySupabase(query, label);
   return result.count ?? 0;
 };
