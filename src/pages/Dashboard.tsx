@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   BookOpen, ClipboardList, Users, TrendingUp, Plus, ArrowRight,
-  GraduationCap, Clock, ShieldCheck, UserCog, GraduationCap as GradIcon,
+  GraduationCap, Clock, ShieldCheck, UserCog,
 } from "lucide-react";
 import { MathRender } from "@/components/MathRender";
 import { supabase } from "@/integrations/supabase/client";
