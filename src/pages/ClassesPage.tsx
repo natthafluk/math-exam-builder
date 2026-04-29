@@ -153,29 +153,22 @@ function CreateClassDialog({ open, onOpenChange, onCreated }: { open: boolean; o
   );
 }
 
-function RosterDialog({ classId, className, open, onOpenChange, onChange }: { classId: string; className: string; open: boolean; onOpenChange: (b: boolean) => void; onChange: () => void }) {
-  const [roster, setRoster] = useState<RosterRow[]>([]);
-  const [loading, setLoading] = useState(false);
+function RosterDialog({ classId, className, students, open, onOpenChange, onChange }: { classId: string; className: string; students: RosterRow[]; open: boolean; onOpenChange: (b: boolean) => void; onChange: () => void }) {
+  const [roster, setRoster] = useState<RosterRow[]>(students);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [csv, setCsv] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("class_students").select("id,student_code,full_name").eq("class_id", classId).order("student_code");
-    setRoster((data ?? []) as RosterRow[]);
-    setLoading(false);
-  };
-  useEffect(() => { if (open) load(); /* eslint-disable-next-line */ }, [open]);
+  useEffect(() => { setRoster(students); }, [students]);
 
   const addOne = async () => {
     if (!code.trim() || !name.trim()) { toast.error("กรอกเลขประจำตัวและชื่อ"); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("teacher_import_roster", { _class_id: classId, _rows: [{ student_code: code.trim(), full_name: name.trim() }] });
+    const { error } = await (supabase as any).rpc("teacher_add_student_to_class", { _class_id: classId, _student_code: code.trim(), _full_name: name.trim() });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    setCode(""); setName(""); load(); onChange();
+    if (error) { toast.error(dbErrorMessage(error.message)); return; }
+    setCode(""); setName(""); await onChange();
     toast.success("เพิ่มนักเรียนแล้ว");
   };
 
@@ -187,17 +180,25 @@ function RosterDialog({ classId, className, open, onOpenChange, onChange }: { cl
     }).filter((r) => r.student_code && r.full_name);
     if (rows.length === 0) { toast.error("ไม่พบข้อมูลที่ใช้งานได้"); return; }
     setBusy(true);
-    const { data, error } = await supabase.rpc("teacher_import_roster", { _class_id: classId, _rows: rows });
+    let added = 0;
+    for (const row of rows) {
+      const { error } = await (supabase as any).rpc("teacher_add_student_to_class", { _class_id: classId, _student_code: row.student_code, _full_name: row.full_name });
+      if (error) {
+        setBusy(false);
+        toast.error(dbErrorMessage(error.message));
+        return;
+      }
+      added += 1;
+    }
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    setCsv(""); load(); onChange();
-    toast.success(`นำเข้าแล้ว ${data} รายการ`);
+    setCsv(""); await onChange();
+    toast.success(`นำเข้าแล้ว ${added} รายการ`);
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from("class_students").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    load(); onChange();
+    const { error } = await (supabase as any).rpc("teacher_remove_student_from_class", { _student_row_id: id });
+    if (error) { toast.error(dbErrorMessage(error.message)); return; }
+    await onChange();
   };
 
   return (
