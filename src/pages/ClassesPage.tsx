@@ -54,7 +54,7 @@ export default function ClassesPage() {
   return (
     <AppLayout title="ห้องเรียน">
       <div className="flex justify-end mb-4">
-        {isAdminOrTeacher && (
+        {canCreateClass && (
           <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> สร้างห้องเรียนใหม่</Button>
         )}
       </div>
