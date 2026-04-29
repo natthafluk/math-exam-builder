@@ -87,23 +87,11 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-sidebar-border space-y-2">
-        <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">
-          สลับบทบาท (เดโม)
+      <div className="p-3 border-t border-sidebar-border">
+        <div className="text-[11px] text-sidebar-foreground/50 px-1 leading-relaxed">
+          เข้าสู่ระบบในชื่อ
+          <div className="text-sm text-sidebar-foreground font-medium mt-0.5 truncate">{currentUser.name}</div>
         </div>
-        <Select value={currentUser.id} onValueChange={setCurrentUserId}>
-          <SelectTrigger className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground" aria-label="สลับบทบาทผู้ใช้">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                <span className="text-xs text-muted-foreground mr-1">[{roleLabel[u.role]}]</span>
-                {u.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
     </aside>
   );
