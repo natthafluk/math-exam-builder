@@ -120,26 +120,31 @@ export default function AdminPage() {
           <Database className="w-4 h-4 text-primary" />
           <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน</h3>
         </div>
-        {dbStats ? (
+        {statsError && (
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            {statsError}
+          </div>
+        )}
+        {statsLoading && !dbStats ? (
+          <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
+        ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
-              { label: "ผู้ดูแล", value: dbStats.admins },
-              { label: "ครู", value: dbStats.teachers },
-              { label: "นักเรียน", value: dbStats.students },
-              { label: "ห้องเรียน", value: dbStats.classes },
-              { label: "ข้อสอบในคลัง", value: dbStats.questions },
-              { label: "ชุดข้อสอบ", value: dbStats.exams },
-              { label: "การส่งทั้งหมด", value: dbStats.attempts },
-              { label: "คะแนนเฉลี่ย %", value: dbStats.avgScore },
+              { label: "ผู้ดูแล", value: dbStats?.admins },
+              { label: "ครู", value: dbStats?.teachers },
+              { label: "นักเรียน", value: dbStats?.students },
+              { label: "ห้องเรียน", value: dbStats?.classes },
+              { label: "ข้อสอบในคลัง", value: dbStats?.questions },
+              { label: "ชุดข้อสอบ", value: dbStats?.exams },
+              { label: "การส่งทั้งหมด", value: dbStats?.attempts },
+              { label: "คะแนนเฉลี่ย %", value: dbStats?.avgScore },
             ].map((s) => (
               <div key={s.label} className="bg-card rounded-md p-3 border border-border">
                 <div className="text-[11px] text-muted-foreground">{s.label}</div>
-                <div className="text-xl font-semibold tabular-nums">{s.value}</div>
+                <div className="text-xl font-semibold tabular-nums">{s.value ?? "โหลดไม่ได้"}</div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
         )}
       </Card>
 
