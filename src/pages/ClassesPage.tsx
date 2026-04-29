@@ -212,7 +212,7 @@ function RosterDialog({ classId, className, students, open, onOpenChange, onChan
             <TabsTrigger value="import">นำเข้าหลายคน</TabsTrigger>
           </TabsList>
           <TabsContent value="list">
-            {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto my-6" /> : roster.length === 0 ? (
+            {roster.length === 0 ? (
               <div className="text-center text-muted-foreground py-6">ยังไม่มีนักเรียน</div>
             ) : (
               <div className="max-h-80 overflow-auto space-y-1 mt-2">
