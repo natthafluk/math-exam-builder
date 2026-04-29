@@ -67,8 +67,9 @@ export default function TakeExam() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm truncate">{exam.title}</div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" /> {exam.timeLimitMinutes} นาที • ข้อ {idx + 1} จาก {items.length}
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Clock className="w-3 h-3" /> {exam.timeLimitMinutes} นาที • ข้อ {idx + 1}/{items.length}
+              <span className="text-success">• บันทึกอัตโนมัติ</span>
             </div>
           </div>
           <AlertDialog>
@@ -79,7 +80,13 @@ export default function TakeExam() {
               <AlertDialogHeader>
                 <AlertDialogTitle>ยืนยันการส่งข้อสอบ</AlertDialogTitle>
                 <AlertDialogDescription>
-                  คุณตอบไปแล้ว {answered} จาก {items.length} ข้อ — เมื่อส่งแล้วจะไม่สามารถแก้ไขได้
+                  คุณตอบไปแล้ว {answered} จาก {items.length} ข้อ
+                  {answered < items.length && (
+                    <span className="block mt-2 text-warning font-medium">
+                      ⚠ ยังมี {items.length - answered} ข้อที่ยังไม่ได้ตอบ — ข้อเหล่านี้จะถูกนับเป็น 0 คะแนน
+                    </span>
+                  )}
+                  <span className="block mt-2 text-xs">เมื่อส่งแล้วจะไม่สามารถแก้ไขได้</span>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
