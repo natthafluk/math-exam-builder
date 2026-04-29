@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Role } from "./types";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -16,7 +17,7 @@ interface Profile {
 }
 
 interface ProfileLoadStatus {
-  state: "idle" | "loading" | "ok" | "missing" | "error";
+  state: "idle" | "loading" | "ok" | "missing" | "error" | "stale";
   message?: string;
 }
 
@@ -33,6 +34,28 @@ interface AuthCtx {
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
+
+const PROFILE_CACHE_PREFIX = "mathbank.profile.";
+const transientProfileError = (message: string) =>
+  /schema cache|database client|retrying/i.test(message);
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const readCachedProfile = (uid: string): Profile | null => {
+  try {
+    const raw = window.localStorage.getItem(`${PROFILE_CACHE_PREFIX}${uid}`);
+    return raw ? (JSON.parse(raw) as Profile) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedProfile = (profile: Profile) => {
+  try {
+    window.localStorage.setItem(`${PROFILE_CACHE_PREFIX}${profile.id}`, JSON.stringify(profile));
+  } catch {
+    // Ignore storage quota/privacy mode errors; live profile state still works.
+  }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
