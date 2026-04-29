@@ -109,16 +109,25 @@ export function StudentExams() {
           ) : (
             <div className="space-y-3 mt-4">
               {results.map((r) => {
-                const pct = r.max_score > 0 ? Math.round((r.score / r.max_score) * 100) : 0;
+                const pct = r.revealed && r.score != null && r.max_score > 0 ? Math.round((r.score / r.max_score) * 100) : 0;
                 return (
                   <Card key={r.attempt_id} className="p-5 flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{r.exam_title}</div>
                       <div className="text-xs text-muted-foreground">ส่งเมื่อ {r.submitted_at ? new Date(r.submitted_at).toLocaleString("th-TH") : "—"}</div>
+                      {!r.revealed && (
+                        <div className="text-xs text-warning mt-1">⏳ รอครูเปิดเผยคะแนน</div>
+                      )}
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold tabular-nums">{r.score}/{r.max_score}</div>
-                      <div className={`text-sm font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+                      {r.revealed && r.score != null ? (
+                        <>
+                          <div className="text-2xl font-bold tabular-nums">{r.score}/{r.max_score}</div>
+                          <div className={`text-sm font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">ยังไม่เปิดเผย</div>
+                      )}
                     </div>
                   </Card>
                 );
