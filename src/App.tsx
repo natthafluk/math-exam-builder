@@ -29,6 +29,7 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import ResultsPage from "./pages/ResultsPage";
 import AdminPage from "./pages/AdminPage";
 import ImportQuestions from "./pages/ImportQuestions";
+import RevealControl from "./pages/RevealControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
