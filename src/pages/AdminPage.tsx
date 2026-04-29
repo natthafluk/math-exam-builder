@@ -108,6 +108,33 @@ export default function AdminPage() {
 
   return (
     <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ" breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ศูนย์ผู้ดูแล" }]}>
+      <Card className="p-5 mb-4 border-primary/30 bg-primary-soft/30">
+        <div className="flex items-center gap-2 mb-3">
+          <Database className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน (จากฐานข้อมูลจริง)</h3>
+        </div>
+        {dbStats ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {[
+              { label: "ครู", value: dbStats.teachers },
+              { label: "นักเรียน", value: dbStats.students },
+              { label: "ห้องเรียน", value: dbStats.classes },
+              { label: "ข้อในคลัง", value: dbStats.questions },
+              { label: "ชุดข้อสอบ", value: dbStats.exams },
+              { label: "การส่งทั้งหมด", value: dbStats.attempts },
+              { label: "คะแนนเฉลี่ย %", value: dbStats.avgScore },
+            ].map((s) => (
+              <div key={s.label} className="bg-card rounded-md p-3 border border-border">
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                <div className="text-xl font-semibold tabular-nums">{s.value}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
+        )}
+      </Card>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (
           <Card key={s.label} className="p-5 flex items-start gap-3">
@@ -115,7 +142,7 @@ export default function AdminPage() {
               <s.icon className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">{s.label}</div>
+              <div className="text-xs text-muted-foreground">{s.label} (เดโม)</div>
               <div className="text-2xl font-semibold mt-0.5 tabular-nums">{s.value}</div>
             </div>
           </Card>
