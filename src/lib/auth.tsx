@@ -31,12 +31,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, role, avatar_initials, avatar_color")
-      .eq("id", uid)
-      .maybeSingle();
-    setProfile((data as Profile) ?? null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, role, avatar_initials, avatar_color")
+        .eq("id", uid)
+        .abortSignal(controller.signal)
+        .maybeSingle();
+      if (error) throw error;
+      setProfile((data as Profile) ?? null);
+    } catch {
+      setProfile(null);
+    } finally {
+      window.clearTimeout(timeout);
+    }
   };
 
   useEffect(() => {
@@ -45,9 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         // defer to avoid deadlock
-        setTimeout(() => loadProfile(s.user.id), 0);
+        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
       } else {
         setProfile(null);
+        setLoading(false);
       }
     });
 
