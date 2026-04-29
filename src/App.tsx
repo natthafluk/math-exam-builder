@@ -6,7 +6,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreProvider } from "@/lib/store";
 import { AuthProvider } from "@/lib/auth";
 import { RequireAuth } from "@/components/RequireAuth";
+import { RequireStudent } from "@/components/RequireStudent";
+import { StudentSessionProvider } from "@/lib/studentSession";
 import Auth from "./pages/Auth";
+import StudentLogin from "./pages/StudentLogin";
+import { StudentExams as StudentExamsNew, StudentTakeExam } from "./pages/StudentApp";
 import Dashboard from "./pages/Dashboard";
 import QuestionBank from "./pages/QuestionBank";
 import QuestionEditor from "./pages/QuestionEditor";
@@ -16,7 +20,7 @@ import ExamBuilder from "./pages/ExamBuilder";
 import ExamResults from "./pages/ExamResults";
 import ExamPrint from "./pages/ExamPrint";
 import TakeExam from "./pages/TakeExam";
-import { StudentExams, StudentResults } from "./pages/StudentPages";
+
 import UsersPage from "./pages/UsersPage";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
@@ -37,9 +41,10 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+        <StudentSessionProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
 
@@ -56,11 +61,12 @@ const App = () => (
             <Route path="/exams/:id/print" element={<Protected><ExamPrint /></Protected>} />
             <Route path="/exams/:id/take" element={<Protected><TakeExam /></Protected>} />
 
+            <Route path="/student-login" element={<StudentLogin />} />
             <Route path="/student" element={<Navigate to="/student/exams" replace />} />
-            <Route path="/student/exams" element={<Protected><StudentExams /></Protected>} />
-            <Route path="/student/exams/:id" element={<Protected><TakeExam /></Protected>} />
-            <Route path="/student/results" element={<Protected><StudentResults /></Protected>} />
-            <Route path="/student/take/:id" element={<Protected><TakeExam /></Protected>} />
+            <Route path="/student/exams" element={<RequireStudent><StudentExamsNew /></RequireStudent>} />
+            <Route path="/student/take/:id" element={<RequireStudent><StudentTakeExam /></RequireStudent>} />
+            <Route path="/student/exams/:id" element={<RequireStudent><StudentTakeExam /></RequireStudent>} />
+            <Route path="/student/results" element={<RequireStudent><StudentExamsNew /></RequireStudent>} />
 
             <Route path="/classes" element={<Protected><ClassesPage /></Protected>} />
             <Route path="/students" element={<Protected><UsersPage /></Protected>} />
@@ -74,6 +80,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </StudentSessionProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

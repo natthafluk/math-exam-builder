@@ -85,7 +85,8 @@ export default function Auth() {
             <Sigma className="w-7 h-7" strokeWidth={2.5} />
           </div>
           <h1 className="text-2xl font-bold">MathBank Studio</h1>
-          <p className="text-sm text-muted-foreground">คลังข้อสอบคณิต — เข้าสู่ระบบ</p>
+          <p className="text-sm text-muted-foreground">คลังข้อสอบคณิต — เข้าสู่ระบบ (ครู/ผู้ดูแล)</p>
+          <Button variant="link" size="sm" onClick={() => nav("/student-login")}>นักเรียน → เข้าด้วยเลขประจำตัว</Button>
         </div>
 
         <Card className="p-6 space-y-4">

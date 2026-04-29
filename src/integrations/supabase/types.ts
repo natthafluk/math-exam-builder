@@ -105,33 +105,36 @@ export type Database = {
         Row: {
           assignment_id: string
           created_at: string
+          enrollment_id: string | null
           id: string
           max_score: number
           score: number
           status: Database["public"]["Enums"]["attempt_status"]
-          student_id: string
+          student_id: string | null
           submitted_at: string | null
           updated_at: string
         }
         Insert: {
           assignment_id: string
           created_at?: string
+          enrollment_id?: string | null
           id?: string
           max_score?: number
           score?: number
           status?: Database["public"]["Enums"]["attempt_status"]
-          student_id: string
+          student_id?: string | null
           submitted_at?: string | null
           updated_at?: string
         }
         Update: {
           assignment_id?: string
           created_at?: string
+          enrollment_id?: string | null
           id?: string
           max_score?: number
           score?: number
           status?: Database["public"]["Enums"]["attempt_status"]
-          student_id?: string
+          student_id?: string | null
           submitted_at?: string | null
           updated_at?: string
         }
@@ -141,6 +144,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attempts_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "class_students"
             referencedColumns: ["id"]
           },
           {
@@ -226,12 +236,45 @@ export type Database = {
           },
         ]
       }
+      class_students: {
+        Row: {
+          class_id: string
+          created_at: string
+          full_name: string
+          id: string
+          student_code: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          full_name: string
+          id?: string
+          student_code: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          student_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_students_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string
           grade_level: string
           id: string
           name: string
+          subject_code: string
           teacher_id: string | null
         }
         Insert: {
@@ -239,6 +282,7 @@ export type Database = {
           grade_level: string
           id?: string
           name: string
+          subject_code?: string
           teacher_id?: string | null
         }
         Update: {
@@ -246,6 +290,7 @@ export type Database = {
           grade_level?: string
           id?: string
           name?: string
+          subject_code?: string
           teacher_id?: string | null
         }
         Relationships: [
@@ -580,6 +625,70 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      student_find_enrollments: {
+        Args: { _code: string }
+        Returns: {
+          class_id: string
+          class_name: string
+          enrollment_id: string
+          full_name: string
+          grade_level: string
+          subject_code: string
+          teacher_name: string
+        }[]
+      }
+      student_get_exam: {
+        Args: { _assignment_id: string; _code: string; _enrollment_id: string }
+        Returns: Json
+      }
+      student_list_assignments: {
+        Args: { _code: string; _enrollment_id: string }
+        Returns: {
+          assignment_id: string
+          due_date: string
+          exam_description: string
+          exam_id: string
+          exam_title: string
+          show_explanations: boolean
+          status: string
+          time_limit_minutes: number
+        }[]
+      }
+      student_list_results: {
+        Args: { _code: string; _enrollment_id: string }
+        Returns: {
+          attempt_id: string
+          exam_title: string
+          max_score: number
+          score: number
+          submitted_at: string
+        }[]
+      }
+      student_submit_attempt: {
+        Args: {
+          _answers: Json
+          _assignment_id: string
+          _code: string
+          _enrollment_id: string
+        }
+        Returns: Json
+      }
+      student_verify: {
+        Args: { _code: string; _enrollment_id: string }
+        Returns: {
+          class_id: string
+          class_name: string
+          enrollment_id: string
+          full_name: string
+          grade_level: string
+          subject_code: string
+          teacher_name: string
+        }[]
+      }
+      teacher_import_roster: {
+        Args: { _class_id: string; _rows: Json }
+        Returns: number
       }
     }
     Enums: {
