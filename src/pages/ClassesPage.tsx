@@ -11,6 +11,7 @@ import { Users, Plus, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { setCachedClassStats } from "@/lib/adminStats";
 
 interface RosterRow { id: string; student_code: string; full_name: string }
 interface ClassRow {
@@ -60,6 +61,7 @@ export default function ClassesPage() {
         if (!error) {
           const next = normalizeClasses((data ?? []) as ClassRow[]);
           classesMemoryCache = next;
+          setCachedClassStats(next);
           setClasses(next);
           loaded = true;
           break;
