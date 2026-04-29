@@ -85,11 +85,27 @@ export default function Auth() {
             <Sigma className="w-7 h-7" strokeWidth={2.5} />
           </div>
           <h1 className="text-2xl font-bold">MathBank Studio</h1>
-          <p className="text-sm text-muted-foreground">คลังข้อสอบคณิต — เข้าสู่ระบบ (ครู/ผู้ดูแล)</p>
-          <Button variant="link" size="sm" onClick={() => nav("/student-login")}>นักเรียน → เข้าด้วยเลขประจำตัว</Button>
+          <p className="text-sm text-muted-foreground">คลังข้อสอบคณิต — เลือกบทบาทเพื่อเข้าใช้งาน</p>
         </div>
 
         <Card className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md text-sm font-medium bg-background shadow-sm text-foreground"
+              aria-pressed="true"
+            >
+              ครู / ผู้ดูแล
+            </button>
+            <button
+              type="button"
+              onClick={() => nav("/student-login")}
+              className="px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              aria-pressed="false"
+            >
+              นักเรียน
+            </button>
+          </div>
           <form onSubmit={handleLogin} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="email">อีเมล</Label>
