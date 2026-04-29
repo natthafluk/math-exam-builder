@@ -155,8 +155,14 @@ export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStat
     else errors.push("โหลดจำนวนนักเรียนไม่สำเร็จ");
 
     if (classes !== null && students !== null) classStatsCache = { classes, students };
-    const totalUsers = admins === null || teachers === null || students === null ? null : admins + teachers + students;
-    return errors.length === 3 ? emptyPrimary(["โหลดสถิติหลักไม่สำเร็จ กรุณาลองใหม่"]) : { admins, teachers, students, classes, totalUsers, errors };
+    if (errors.length === 3) return { ...LAST_KNOWN_PRIMARY, errors: ["แสดงข้อมูลล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] };
+
+    const safeAdmins = admins ?? LAST_KNOWN_PRIMARY.admins;
+    const safeTeachers = teachers ?? LAST_KNOWN_PRIMARY.teachers;
+    const safeStudents = students ?? LAST_KNOWN_PRIMARY.students;
+    const safeClasses = classes ?? LAST_KNOWN_PRIMARY.classes;
+    const totalUsers = safeAdmins === null || safeTeachers === null || safeStudents === null ? null : safeAdmins + safeTeachers + safeStudents;
+    return { admins: safeAdmins, teachers: safeTeachers, students: safeStudents, classes: safeClasses, totalUsers, errors };
   })().finally(() => {
     primaryPromise = null;
   });
@@ -201,13 +207,14 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
     const recentExams = results[4].status === "fulfilled" ? results[4].value.data ?? [] : [];
     if (results[4].status === "rejected") errors.push("โหลดข้อสอบล่าสุดไม่สำเร็จ");
 
+    const failedAll = errors.length >= 5;
     return {
-      questions: numberAt(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ"),
-      exams: numberAt(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ"),
-      attempts: numberAt(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ"),
-      avgScore,
+      questions: numberAt(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.questions,
+      exams: numberAt(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.exams,
+      attempts: numberAt(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.attempts,
+      avgScore: avgScore ?? LAST_KNOWN_SECONDARY.avgScore,
       recentExams,
-      errors: errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
+      errors: failedAll ? ["แสดงสถิติรองล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] : errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
     };
   })().finally(() => {
     secondaryPromise = null;
