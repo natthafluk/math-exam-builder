@@ -8,13 +8,12 @@ import { cn } from "@/lib/utils";
 
 const navByRole = {
   admin: [
-    { to: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
+    { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/admin", icon: ShieldCheck, label: "ศูนย์ผู้ดูแล" },
     { to: "/approvals", icon: UserCheck, label: "อนุมัติผู้ใช้" },
     { to: "/users", icon: Users, label: "ผู้ใช้และบทบาท" },
-    { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
-    { to: "/exams", icon: ClipboardList, label: "ข้อสอบทั้งหมด" },
+    { to: "/exams", icon: ClipboardList, label: "ชุดข้อสอบ" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนนรวม" },
     { to: "/reveal", icon: Eye, label: "เปิดเผยผลสอบ" },
     { to: "/analytics", icon: BarChart3, label: "สถิติระบบ" },
