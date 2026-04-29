@@ -176,7 +176,7 @@ export function StudentTakeExam() {
   const [data, setData] = useState<ExamPayload | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ score: number; max_score: number } | null>(null);
+  const [result, setResult] = useState<{ score: number | null; max_score: number; revealed: boolean } | null>(null);
 
   useEffect(() => {
     if (!session || !id) return;
