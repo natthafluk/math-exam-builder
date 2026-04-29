@@ -35,27 +35,13 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const PROFILE_CACHE_PREFIX = "mathbank.profile.";
+const profileMemoryCache = new Map<string, Profile>();
 const transientProfileError = (message: string) =>
   /schema cache|database client|retrying/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-const readCachedProfile = (uid: string): Profile | null => {
-  try {
-    const raw = window.localStorage.getItem(`${PROFILE_CACHE_PREFIX}${uid}`);
-    return raw ? (JSON.parse(raw) as Profile) : null;
-  } catch {
-    return null;
-  }
-};
-
-const writeCachedProfile = (profile: Profile) => {
-  try {
-    window.localStorage.setItem(`${PROFILE_CACHE_PREFIX}${profile.id}`, JSON.stringify(profile));
-  } catch {
-    // Ignore storage quota/privacy mode errors; live profile state still works.
-  }
-};
+const readCachedProfile = (uid: string): Profile | null => profileMemoryCache.get(uid) ?? null;
+const writeCachedProfile = (profile: Profile) => profileMemoryCache.set(profile.id, profile);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
