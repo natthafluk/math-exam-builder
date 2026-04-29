@@ -10,6 +10,9 @@ interface Profile {
   role: Role;
   avatar_initials: string | null;
   avatar_color: string | null;
+  approval_status?: string;
+  is_super_admin?: boolean;
+  requested_role?: Role | null;
 }
 
 interface ProfileLoadStatus {
