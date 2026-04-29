@@ -154,7 +154,7 @@ const fromSummary = (raw: any): SchoolStats => {
 
 export async function loadDashboardSummary(force = false): Promise<SchoolStats> {
   if (!force && summaryCache) return summaryCache;
-  if (!force && summaryPromise) return summaryPromise;
+  if (summaryPromise) return summaryPromise;
 
   summaryPromise = withPromiseTimeout(
     retrySupabase<any>(() => (supabase as any).rpc("admin_dashboard_summary"), "admin_dashboard_summary", { maxTries: 1, timeoutMs: STATS_RPC_TIMEOUT_MS })
