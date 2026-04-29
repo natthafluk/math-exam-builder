@@ -17,11 +17,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2, Database, Crown,
+  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2, Database, Crown, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Role, QuestionStatus } from "@/lib/types";
-import { loadSchoolStats, retrySupabase, type SchoolStats } from "@/lib/adminStats";
+import { loadPrimarySchoolStats, loadSecondarySchoolStats, retrySupabase, type PrimaryStats, type SecondaryStats } from "@/lib/adminStats";
 
 type DbUser = {
   id: string;
@@ -41,7 +41,8 @@ export default function AdminPage() {
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
 
-  const [dbStats, setDbStats] = useState<SchoolStats | null>(null);
+  const [primaryStats, setPrimaryStats] = useState<PrimaryStats | null>(null);
+  const [secondaryStats, setSecondaryStats] = useState<SecondaryStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
@@ -52,17 +53,28 @@ export default function AdminPage() {
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     setStatsError(null);
-    try {
-      const nextStats = await loadSchoolStats();
-      setDbStats(nextStats);
-      setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[AdminPage] load stats failed:", error);
-      setStatsError(`โหลดสถิติไม่สำเร็จ: ${message}`);
-    } finally {
-      setStatsLoading(false);
-    }
+    loadPrimarySchoolStats()
+      .then((nextStats) => {
+        setPrimaryStats(nextStats);
+        setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[AdminPage] load primary stats failed:", error);
+        setStatsError(`โหลดสถิติหลักไม่สำเร็จ: ${message}`);
+      })
+      .finally(() => setStatsLoading(false));
+
+    loadSecondarySchoolStats()
+      .then((nextStats) => {
+        setSecondaryStats(nextStats);
+        if (nextStats.errors.length > 0) setStatsError((prev) => [prev, nextStats.errors.join(" / ")].filter(Boolean).join(" / "));
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[AdminPage] load secondary stats failed:", error);
+        setStatsError((prev) => [prev, `โหลดสถิติรองไม่สำเร็จ: ${message}`].filter(Boolean).join(" / "));
+      });
   }, []);
 
   const loadUsers = useCallback(async () => {
