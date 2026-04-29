@@ -43,7 +43,7 @@ const roleTone: Record<string, string> = {
 };
 
 export function AppSidebar() {
-  const { currentUser, setCurrentUserId, users } = useStore();
+  const { currentUser } = useStore();
   const location = useLocation();
   const items = navByRole[currentUser.role];
 
