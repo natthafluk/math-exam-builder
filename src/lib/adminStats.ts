@@ -228,8 +228,8 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
 
 export async function loadSchoolStats(force = false): Promise<SchoolStats> {
   const [primary, secondary] = await Promise.all([
-    loadPrimarySchoolStats(force).catch(() => emptyPrimary(["โหลดสถิติหลักไม่สำเร็จ กรุณาลองใหม่"])),
-    loadSecondarySchoolStats(force).catch(() => ({ questions: null, exams: null, attempts: null, avgScore: null, recentExams: [], errors: ["โหลดสถิติรองไม่สำเร็จ"] })),
+    loadPrimarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_PRIMARY, errors: ["แสดงข้อมูลล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] })),
+    loadSecondarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_SECONDARY, errors: ["แสดงสถิติรองล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] })),
   ]);
 
   return { ...primary, ...secondary, errors: [...primary.errors, ...secondary.errors] };
