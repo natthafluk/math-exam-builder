@@ -53,6 +53,7 @@ export default function ClassesPage() {
     setLoading(true);
     setLoadError(null);
     let lastMessage = "โหลดข้อมูลห้องเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+    let loaded = false;
     try {
       for (let attempt = 1; attempt <= 5; attempt += 1) {
         const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
@@ -60,7 +61,8 @@ export default function ClassesPage() {
           const next = normalizeClasses((data ?? []) as ClassRow[]);
           classesMemoryCache = next;
           setClasses(next);
-          return;
+          loaded = true;
+          break;
         }
 
         lastMessage = error.message;
@@ -72,7 +74,9 @@ export default function ClassesPage() {
       console.warn("classes load exception:", e);
       lastMessage = e instanceof Error ? e.message : String(e);
     } finally {
-      if (classesMemoryCache && isTransientDbError(lastMessage)) {
+      if (loaded) {
+        setLoadError(null);
+      } else if (classesMemoryCache && isTransientDbError(lastMessage)) {
         setClasses(classesMemoryCache);
         setLoadError("ฐานข้อมูลตอบกลับชั่วคราว ระบบแสดงข้อมูลห้องเรียนล่าสุดให้ก่อน");
       } else {
