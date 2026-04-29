@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore, roleLabel } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2,
+  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Role, QuestionStatus } from "@/lib/types";
@@ -25,6 +26,41 @@ export default function AdminPage() {
   const [newTopic, setNewTopic] = useState({ title: "", grade: "ม.4" });
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
+
+  const [dbStats, setDbStats] = useState<{
+    teachers: number; students: number; classes: number;
+    questions: number; exams: number; attempts: number; avgScore: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const opts = { count: "exact" as const, head: true };
+      const [tRes, sRes, cRes, qRes, eRes, aRes, scRes] = await Promise.all([
+        supabase.from("profiles").select("id", opts).eq("role", "teacher"),
+        supabase.from("profiles").select("id", opts).eq("role", "student"),
+        supabase.from("classes").select("id", opts),
+        supabase.from("questions").select("id", opts),
+        supabase.from("exams").select("id", opts),
+        supabase.from("attempts").select("id", opts),
+        supabase.from("attempts").select("score, max_score").eq("status", "submitted"),
+      ]);
+      if (cancelled) return;
+      const scored = (scRes.data ?? []).filter((r: any) => r.max_score > 0);
+      const avg = scored.length === 0 ? 0
+        : Math.round(scored.reduce((acc: number, r: any) => acc + (r.score / r.max_score) * 100, 0) / scored.length);
+      setDbStats({
+        teachers: tRes.count ?? 0,
+        students: sRes.count ?? 0,
+        classes: cRes.count ?? 0,
+        questions: qRes.count ?? 0,
+        exams: eRes.count ?? 0,
+        attempts: aRes.count ?? 0,
+        avgScore: avg,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = [
     { icon: Users, label: "ผู้ใช้ทั้งหมด", value: users.length },
