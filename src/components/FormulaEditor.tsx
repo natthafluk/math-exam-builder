@@ -15,7 +15,7 @@ interface Props {
   rows?: number;
 }
 
-interface Item { label: string; insert: string; aria: string; wrap?: boolean }
+interface Item { label: string; insert: string; aria?: string }
 
 const QUICK: Item[] = [
   { label: "a/b", insert: "\\frac{a}{b}", aria: "เศษส่วน" },
