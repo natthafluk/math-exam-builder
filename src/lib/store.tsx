@@ -60,9 +60,9 @@ function mapDbQuestion(row: any): Question {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
 
-  // Seed-based fallbacks for parts not yet wired to Supabase
-  const [users, setUsers] = useState<User[]>(seedUsers);
-  const [currentUserId, setCurrentUserId] = useState("u-t1");
+  // Real users come from Supabase profiles via useAuth(); seed users were demo data only.
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [classes] = useState<ClassRoom[]>(seedClasses);
   const [topics, setTopics] = useState<Topic[]>(seedTopics);
   const [questions, setQuestions] = useState<Question[]>(seedQuestions);
