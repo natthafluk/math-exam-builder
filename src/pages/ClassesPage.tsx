@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,44 +12,56 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-interface ClassRow { id: string; name: string; grade_level: string; subject_code: string; teacher_id: string | null }
 interface RosterRow { id: string; student_code: string; full_name: string }
+interface ClassRow {
+  id: string;
+  name: string;
+  grade_level: string;
+  subject_code: string;
+  teacher_id: string | null;
+  teacher_name?: string;
+  student_count: number;
+  students: RosterRow[];
+}
+
+const dbErrorMessage = (message?: string) => {
+  if (!message) return "ทำรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+  if (message.includes("schema cache") || message.includes("Database client error")) {
+    return "เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณากดโหลดใหม่อีกครั้ง";
+  }
+  return message;
+};
 
 export default function ClassesPage() {
   const { profile } = useAuth();
   const [classes, setClasses] = useState<ClassRow[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const { data, error } = await supabase.from("classes").select("id,name,grade_level,subject_code,teacher_id").order("created_at", { ascending: false });
+      const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
       if (error) {
-        console.warn("load classes failed:", error.message);
+        console.warn("load classes via RPC failed:", error.message);
         setClasses([]);
+        setLoadError(dbErrorMessage(error.message));
       } else {
-        setClasses((data ?? []) as ClassRow[]);
-      }
-      const { data: cs, error: csErr } = await supabase.from("class_students").select("class_id");
-      if (csErr) {
-        console.warn("load class_students failed:", csErr.message);
-        setCounts({});
-      } else {
-        const map: Record<string, number> = {};
-        (cs ?? []).forEach((r: any) => { map[r.class_id] = (map[r.class_id] ?? 0) + 1; });
-        setCounts(map);
+        setClasses(((data ?? []) as ClassRow[]).map((c) => ({ ...c, students: c.students ?? [], student_count: c.student_count ?? 0 })));
       }
     } catch (e) {
       console.warn("classes load exception:", e);
+      setClasses([]);
+      setLoadError("โหลดข้อมูลห้องเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const canCreateClass = profile?.role === "teacher";
+  const canCreateClass = profile?.role === "teacher" || profile?.role === "admin";
 
   return (
     <AppLayout title="ห้องเรียน">
@@ -60,17 +72,23 @@ export default function ClassesPage() {
       </div>
       {loading ? (
         <Card className="p-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></Card>
+      ) : loadError ? (
+        <Card className="p-8 text-center space-y-3">
+          <p className="font-medium">โหลดห้องเรียนไม่สำเร็จ</p>
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <Button variant="outline" onClick={load}>โหลดใหม่</Button>
+        </Card>
       ) : classes.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground">ยังไม่มีห้องเรียน</Card>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {classes.map((c) => (
-            <ClassCard key={c.id} c={c} count={counts[c.id] ?? 0} onChange={load} />
+            <ClassCard key={c.id} c={c} onChange={load} />
           ))}
         </div>
       )}
 
-      <CreateClassDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} teacherId={profile?.id} />
+      <CreateClassDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} />
     </AppLayout>
   );
 }
