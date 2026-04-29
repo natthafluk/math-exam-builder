@@ -858,6 +858,10 @@ export type Database = {
           teacher_name: string
         }[]
       }
+      teacher_add_student_to_class: {
+        Args: { _class_id: string; _full_name: string; _student_code: string }
+        Returns: Json
+      }
       teacher_create_class: {
         Args: { _grade_level: string; _name: string; _subject_code?: string }
         Returns: {
@@ -878,6 +882,19 @@ export type Database = {
       teacher_import_roster: {
         Args: { _class_id: string; _rows: Json }
         Returns: number
+      }
+      teacher_list_classes_with_students: {
+        Args: never
+        Returns: {
+          grade_level: string
+          id: string
+          name: string
+          student_count: number
+          students: Json
+          subject_code: string
+          teacher_id: string
+          teacher_name: string
+        }[]
       }
       teacher_list_exams_reveal: {
         Args: never
