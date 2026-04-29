@@ -1,105 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import 'katex/dist/katex.min.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 25% 98%;
+    --foreground: 215 30% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 30% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 30% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Deep teal primary */
+    --primary: 188 78% 24%;
+    --primary-foreground: 180 30% 98%;
+    --primary-soft: 188 50% 94%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 25% 94%;
+    --secondary-foreground: 215 30% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Warm amber accent */
+    --accent: 32 95% 55%;
+    --accent-foreground: 30 60% 12%;
+    --accent-soft: 35 90% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 152 60% 38%;
+    --success-foreground: 150 30% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 60% 12%;
 
-    --radius: 0.5rem;
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 0 0% 98%;
 
-    --sidebar-background: 0 0% 98%;
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 188 78% 24%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --radius: 0.625rem;
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 200 30% 12%;
+    --sidebar-foreground: 200 15% 85%;
+    --sidebar-primary: 32 95% 55%;
+    --sidebar-primary-foreground: 30 60% 12%;
+    --sidebar-accent: 200 30% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 200 30% 18%;
+    --sidebar-ring: 32 95% 55%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 215 30% 10%;
+    --foreground: 210 20% 95%;
+    --card: 215 30% 13%;
+    --card-foreground: 210 20% 95%;
+    --popover: 215 30% 13%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 188 70% 55%;
+    --primary-foreground: 215 30% 10%;
+    --primary-soft: 188 40% 20%;
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 210 20% 95%;
+    --muted: 215 25% 18%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 32 95% 60%;
+    --accent-foreground: 30 60% 12%;
+    --accent-soft: 32 50% 20%;
+    --border: 215 25% 22%;
+    --input: 215 25% 22%;
+    --ring: 188 70% 55%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  * { @apply border-border; }
+  html { font-family: 'IBM Plex Sans Thai', 'Inter', system-ui, sans-serif; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
+}
+
+@layer components {
+  .math-display .katex { font-size: 1.05em; }
+  .math-display .katex-display { margin: 0.4em 0; }
+
+  .surface {
+    @apply bg-card border border-border rounded-lg;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  .row-hover {
+    @apply hover:bg-muted/60 transition-colors;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+}
+
+/* Print styles for exam PDF preview */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  .print-page {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    page-break-after: always;
   }
 }
