@@ -348,6 +348,8 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
+          reveal_mode: string
+          revealed_at: string | null
           settings: Json
           show_explanations: boolean
           status: Database["public"]["Enums"]["exam_status"]
@@ -361,6 +363,8 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
+          reveal_mode?: string
+          revealed_at?: string | null
           settings?: Json
           show_explanations?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
@@ -374,6 +378,8 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
+          reveal_mode?: string
+          revealed_at?: string | null
           settings?: Json
           show_explanations?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
@@ -573,6 +579,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      exam_is_revealed: {
+        Args: { _assignment_id: string; _exam_id: string }
+        Returns: boolean
+      }
       get_my_profile: {
         Args: never
         Returns: {
@@ -650,6 +660,8 @@ export type Database = {
           exam_description: string
           exam_id: string
           exam_title: string
+          reveal_mode: string
+          revealed: boolean
           show_explanations: boolean
           status: string
           time_limit_minutes: number
@@ -658,9 +670,11 @@ export type Database = {
       student_list_results: {
         Args: { _code: string; _enrollment_id: string }
         Returns: {
+          assignment_id: string
           attempt_id: string
           exam_title: string
           max_score: number
+          revealed: boolean
           score: number
           submitted_at: string
         }[]
@@ -689,6 +703,42 @@ export type Database = {
       teacher_import_roster: {
         Args: { _class_id: string; _rows: Json }
         Returns: number
+      }
+      teacher_list_exams_reveal: {
+        Args: never
+        Returns: {
+          attempts_count: number
+          due_date: string
+          exam_id: string
+          reveal_mode: string
+          revealed_at: string
+          status: string
+          title: string
+        }[]
+      }
+      teacher_set_exam_reveal: {
+        Args: { _exam_id: string; _mode: string; _revealed: boolean }
+        Returns: {
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          reveal_mode: string
+          revealed_at: string | null
+          settings: Json
+          show_explanations: boolean
+          status: Database["public"]["Enums"]["exam_status"]
+          teacher_id: string | null
+          time_limit_minutes: number
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "exams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
