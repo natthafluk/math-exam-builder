@@ -59,6 +59,33 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 const errorText = (label: string, reason: unknown) => `${label}: ${messageOf(reason)}`;
 
+export const setCachedClassStats = (rows: ClassStatsRow[]) => {
+  classStatsCache = {
+    classes: rows.length,
+    students: rows.reduce((sum, row) => sum + (Number(row.student_count) || 0), 0),
+  };
+};
+
+const loadClassStats = async () => {
+  try {
+    const { data } = await retrySupabase<ClassStatsRow[]>(
+      () => (supabase as any).rpc("teacher_list_classes_with_students"),
+      "teacher_list_classes_with_students"
+    );
+    const rows = data ?? [];
+    setCachedClassStats(rows);
+    return classStatsCache;
+  } catch (rpcError) {
+    console.warn("[teacher_list_classes_with_students] falling back to direct counts:", messageOf(rpcError));
+    const [classesResult, studentsResult] = await Promise.all([
+      retrySupabase(() => supabase.from("classes").select("id", { count: "exact", head: true }), "classes_count_fallback"),
+      retrySupabase(() => supabase.from("class_students").select("id", { count: "exact", head: true }), "class_students_count_fallback"),
+    ]);
+    classStatsCache = { classes: classesResult.count ?? 0, students: studentsResult.count ?? 0 };
+    return classStatsCache;
+  }
+};
+
 export async function retrySupabase<T>(fn: () => SupabaseCall<T>, label: string, options: RetryOptions = {}) {
   const maxTries = options.maxTries ?? DASHBOARD_RETRY.maxTries;
   const delays = options.delays ?? DASHBOARD_RETRY.delays;
@@ -90,18 +117,18 @@ const countResult = async (label: string, query: () => SupabaseCall) => {
 };
 
 const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
-  admins: null,
-  teachers: null,
+  admins: usersStatsCache?.admins ?? null,
+  teachers: usersStatsCache?.teachers ?? null,
   students: classStatsCache?.students ?? null,
   classes: classStatsCache?.classes ?? null,
-  totalUsers: null,
+  totalUsers: usersStatsCache && classStatsCache ? usersStatsCache.admins + usersStatsCache.teachers + classStatsCache.students : null,
   errors,
 });
 
 export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
   const results = await Promise.allSettled([
     retrySupabase<AdminUserRow[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_list_users"),
-    retrySupabase<ClassStatsRow[]>(() => (supabase as any).rpc("teacher_list_classes_with_students"), "teacher_list_classes_with_students"),
+    loadClassStats(),
   ]);
 
   const errors: string[] = [];
@@ -120,10 +147,8 @@ export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
   }
 
   if (results[1].status === "fulfilled") {
-    const classRows = results[1].value.data ?? [];
-    classes = classRows.length;
-    students = classRows.reduce((sum, row) => sum + (Number(row.student_count) || 0), 0);
-    classStatsCache = { students, classes };
+    classes = results[1].value?.classes ?? null;
+    students = results[1].value?.students ?? null;
   } else {
     errors.push("โหลดสถิติห้องเรียนไม่สำเร็จ กดรีเฟรชอีกครั้ง");
   }
