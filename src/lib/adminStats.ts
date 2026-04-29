@@ -265,7 +265,8 @@ export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStat
       errors: [],
     };
   } catch (summaryError) {
-    return emptyPrimary([errorText("โหลดสถิติหลักไม่สำเร็จ", summaryError)]);
+    const fallback = await loadPrimaryDirect("primary_fallback");
+    return { ...fallback, errors: fallback.errors.length > 0 ? [errorText("โหลดสถิติหลักแบบรวมไม่สำเร็จ", summaryError), ...fallback.errors] : [] };
   }
 }
 
@@ -281,7 +282,8 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
       errors: [],
     };
   } catch (summaryError) {
-    return { questions: null, exams: null, attempts: null, avgScore: null, recentExams: [], errors: [errorText("โหลดสถิติรองไม่สำเร็จ", summaryError)] };
+    const fallback = await loadSecondaryDirect("secondary_fallback");
+    return { ...fallback, errors: fallback.errors.length > 0 ? [errorText("โหลดสถิติรองแบบรวมไม่สำเร็จ", summaryError), ...fallback.errors] : [] };
   }
 }
 
@@ -289,7 +291,7 @@ export async function loadSchoolStats(force = false): Promise<SchoolStats> {
   try {
     return await loadDashboardSummary(force);
   } catch (summaryError) {
-    const primary = emptyPrimary([errorText("โหลดสถิติหลักไม่สำเร็จ", summaryError)]);
-    return { ...primary, questions: null, exams: null, attempts: null, avgScore: null, recentExams: [], errors: primary.errors };
+    const [primary, secondary] = await Promise.all([loadPrimaryDirect("school_fallback"), loadSecondaryDirect("school_fallback")]);
+    return { ...primary, ...secondary, errors: [errorText("โหลดสถิติแบบรวมไม่สำเร็จ", summaryError), ...primary.errors, ...secondary.errors] };
   }
 }
