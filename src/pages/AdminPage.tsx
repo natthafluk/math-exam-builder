@@ -133,27 +133,30 @@ export default function AdminPage() {
           <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน</h3>
         </div>
         {statsError && (
-          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-            {statsError}
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <span>{statsError}</span>
+            <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5 self-start sm:self-auto">
+              <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
+            </Button>
           </div>
         )}
-        {statsLoading && !dbStats ? (
+        {statsLoading && !primaryStats ? (
           <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
-              { label: "ผู้ดูแล", value: dbStats?.admins },
-              { label: "ครู", value: dbStats?.teachers },
-              { label: "นักเรียน", value: dbStats?.students },
-              { label: "ห้องเรียน", value: dbStats?.classes },
-              { label: "ข้อสอบในคลัง", value: dbStats?.questions },
-              { label: "ชุดข้อสอบ", value: dbStats?.exams },
-              { label: "การส่งทั้งหมด", value: dbStats?.attempts },
-              { label: "คะแนนเฉลี่ย %", value: dbStats?.avgScore },
+              { label: "ผู้ดูแล", value: primaryStats?.admins },
+              { label: "ครู", value: primaryStats?.teachers },
+              { label: "นักเรียน", value: primaryStats?.students },
+              { label: "ห้องเรียน", value: primaryStats?.classes },
+              { label: "ข้อสอบในคลัง", value: secondaryStats?.questions, secondary: true },
+              { label: "ชุดข้อสอบ", value: secondaryStats?.exams, secondary: true },
+              { label: "การส่งทั้งหมด", value: secondaryStats?.attempts, secondary: true },
+              { label: "คะแนนเฉลี่ย %", value: secondaryStats?.avgScore, secondary: true },
             ].map((s) => (
               <div key={s.label} className="bg-card rounded-md p-3 border border-border">
                 <div className="text-[11px] text-muted-foreground">{s.label}</div>
-                <div className="text-xl font-semibold tabular-nums">{s.value ?? "โหลดไม่ได้"}</div>
+                <div className="text-xl font-semibold tabular-nums">{s.value ?? (s.secondary ? "-" : "โหลดไม่ได้")}</div>
               </div>
             ))}
           </div>
