@@ -87,7 +87,7 @@ function AdminDash() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
         <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={stats?.admins ?? 0} tone="primary" />
         <Stat icon={UserCog} label="ครู" value={stats?.teachers ?? 0} tone="accent" />
-        <Stat icon={GradIcon} label="นักเรียน" value={stats?.students ?? 0} tone="success" />
+        <Stat icon={GraduationCap} label="นักเรียน" value={stats?.students ?? 0} tone="success" />
       </div>
 
       <div className="mt-6">
