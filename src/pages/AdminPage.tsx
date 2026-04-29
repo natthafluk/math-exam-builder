@@ -48,12 +48,13 @@ export default function AdminPage() {
 
   const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
 
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async (force = false) => {
     setStatsLoading(true);
     setStatsError(null);
-    loadPrimarySchoolStats()
+    loadPrimarySchoolStats(force)
       .then((nextStats) => {
         setPrimaryStats(nextStats);
         setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
@@ -65,7 +66,7 @@ export default function AdminPage() {
       })
       .finally(() => setStatsLoading(false));
 
-    loadSecondarySchoolStats()
+    loadSecondarySchoolStats(force)
       .then((nextStats) => {
         setSecondaryStats(nextStats);
         if (nextStats.errors.length > 0) setStatsError((prev) => [prev, nextStats.errors.join(" / ")].filter(Boolean).join(" / "));
@@ -79,13 +80,14 @@ export default function AdminPage() {
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
+    setUsersError(null);
     try {
       const { data } = await retrySupabase<DbUser[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_page_users");
       setDbUsers((data ?? []) as DbUser[]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error("[AdminPage] load users failed:", error);
-      toast.error(`โหลดผู้ใช้ไม่สำเร็จ: ${message}`);
+      setUsersError(`โหลดผู้ใช้ไม่สำเร็จ: ${message}`);
     } finally {
       setUsersLoading(false);
     }
@@ -135,7 +137,7 @@ export default function AdminPage() {
         {statsError && (
           <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <span>{statsError}</span>
-            <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => loadStats(true)} className="gap-1.5 self-start sm:self-auto">
               <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
             </Button>
           </div>
@@ -212,6 +214,17 @@ export default function AdminPage() {
               <TableBody>
                 {usersLoading ? (
                   <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">กำลังโหลด...</TableCell></TableRow>
+                ) : usersError ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                      <div className="space-y-2">
+                        <p>{usersError}</p>
+                        <Button variant="outline" size="sm" onClick={loadUsers} className="gap-1.5">
+                          <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ) : dbUsers.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">ยังไม่มีผู้ใช้</TableCell></TableRow>
                 ) : dbUsers.map((u) => (

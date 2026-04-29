@@ -49,10 +49,13 @@ type RetryOptions = {
   timeoutMs?: number;
 };
 
-const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500], timeoutMs: 900 };
+const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 1, delays: [0], timeoutMs: 2500 };
+const STATS_RPC_TIMEOUT_MS = 3500;
 
 let classStatsCache: Pick<PrimaryStats, "students" | "classes"> | null = null;
 let usersStatsCache: Pick<PrimaryStats, "admins" | "teachers"> | null = null;
+let summaryCache: SchoolStats | null = null;
+let summaryPromise: Promise<SchoolStats> | null = null;
 
 export const isTransientDbError = (message: string) => /schema cache|Database client|Retrying/i.test(message);
 
@@ -62,6 +65,11 @@ const errorText = (label: string, reason: unknown) => `${label}: ${messageOf(rea
 const withTimeout = async <T,>(promise: SupabaseCall<T>, ms: number, label: string) => Promise.race([
   promise,
   new Promise<SupabaseResult<T>>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
+]);
+
+const withPromiseTimeout = async <T,>(promise: Promise<T>, ms: number, label: string) => Promise.race([
+  promise,
+  new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
 ]);
 
 export const setCachedClassStats = (rows: ClassStatsRow[]) => {
@@ -122,6 +130,44 @@ const countResult = async (label: string, query: () => SupabaseCall) => {
   return result.count ?? 0;
 };
 
+const fromSummary = (raw: any): SchoolStats => {
+  const data = Array.isArray(raw) ? raw[0] : raw;
+  const stats: SchoolStats = {
+    admins: Number(data?.admins ?? 0),
+    teachers: Number(data?.teachers ?? 0),
+    students: Number(data?.students ?? 0),
+    classes: Number(data?.classes ?? 0),
+    totalUsers: Number(data?.totalUsers ?? data?.total_users ?? 0),
+    questions: Number(data?.questions ?? 0),
+    exams: Number(data?.exams ?? 0),
+    attempts: Number(data?.attempts ?? 0),
+    avgScore: Number(data?.avgScore ?? data?.avg_score ?? 0),
+    recentExams: Array.isArray(data?.recentExams) ? data.recentExams : Array.isArray(data?.recent_exams) ? data.recent_exams : [],
+    errors: [],
+  };
+
+  usersStatsCache = { admins: stats.admins, teachers: stats.teachers };
+  classStatsCache = { classes: stats.classes, students: stats.students };
+  summaryCache = stats;
+  return stats;
+};
+
+export async function loadDashboardSummary(force = false): Promise<SchoolStats> {
+  if (!force && summaryCache) return summaryCache;
+  if (summaryPromise) return summaryPromise;
+
+  summaryPromise = withPromiseTimeout(
+    retrySupabase<any>(() => (supabase as any).rpc("admin_dashboard_summary"), "admin_dashboard_summary", { maxTries: 1, timeoutMs: STATS_RPC_TIMEOUT_MS })
+      .then((result) => fromSummary(result.data)),
+    STATS_RPC_TIMEOUT_MS + 400,
+    "admin_dashboard_summary"
+  ).finally(() => {
+    summaryPromise = null;
+  });
+
+  return summaryPromise;
+}
+
 const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
   admins: usersStatsCache?.admins ?? null,
   teachers: usersStatsCache?.teachers ?? null,
@@ -131,65 +177,57 @@ const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
   errors,
 });
 
-export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
-  const results = await Promise.allSettled([
-    retrySupabase<AdminUserRow[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_list_users"),
-    loadClassStats(),
+const loadPrimaryDirect = async (prefix: string): Promise<PrimaryStats> => {
+  const [usersResult, classesResult, studentsResult] = await Promise.allSettled([
+    retrySupabase<Array<{ role: string; approval_status: string | null }>>(
+      () => supabase.from("profiles").select("role, approval_status"),
+      `${prefix}_profiles`
+    ),
+    countResult(`${prefix}_classes`, () => supabase.from("classes").select("id", { count: "exact", head: true })),
+    countResult(`${prefix}_class_students`, () => supabase.from("class_students").select("id", { count: "exact", head: true })),
   ]);
 
   const errors: string[] = [];
   let admins: number | null = usersStatsCache?.admins ?? null;
   let teachers: number | null = usersStatsCache?.teachers ?? null;
-  let students: number | null = classStatsCache?.students ?? null;
   let classes: number | null = classStatsCache?.classes ?? null;
+  let students: number | null = classStatsCache?.students ?? null;
 
-  if (results[0].status === "fulfilled") {
-    const users = results[0].value.data ?? [];
-    admins = users.filter((u) => u.role === "admin").length;
-    teachers = users.filter((u) => u.role === "teacher").length;
+  if (usersResult.status === "fulfilled") {
+    const approved = (usersResult.value.data ?? []).filter((u) => u.approval_status === "approved");
+    admins = approved.filter((u) => u.role === "admin").length;
+    teachers = approved.filter((u) => u.role === "teacher").length;
     usersStatsCache = { admins, teachers };
-  } else {
-    errors.push(errorText("โหลดผู้ใช้ไม่สำเร็จ", results[0].reason));
-  }
+  } else errors.push(errorText("โหลดผู้ใช้ไม่สำเร็จ", usersResult.reason));
 
-  if (results[1].status === "fulfilled") {
-    classes = results[1].value?.classes ?? null;
-    students = results[1].value?.students ?? null;
-  } else {
-    errors.push("โหลดสถิติห้องเรียนไม่สำเร็จ กดรีเฟรชอีกครั้ง");
-  }
+  if (classesResult.status === "fulfilled") classes = classesResult.value;
+  else errors.push(errorText("โหลดจำนวนห้องเรียนไม่สำเร็จ", classesResult.reason));
 
+  if (studentsResult.status === "fulfilled") students = studentsResult.value;
+  else errors.push(errorText("โหลดจำนวนนักเรียนไม่สำเร็จ", studentsResult.reason));
+
+  classStatsCache = classes !== null && students !== null ? { classes, students } : classStatsCache;
   const totalUsers = admins === null || teachers === null || students === null ? null : admins + teachers + students;
-
-  if (import.meta.env.DEV) {
-    console.log("[AdminStats:primary]", {
-      usersRows: results[0].status === "fulfilled" ? (results[0].value.data ?? []).length : "failed",
-      classesRows: results[1].status === "fulfilled" ? results[1].value?.classes : "failed",
-      studentsTotal: students,
-      errors,
-    });
-  }
-
   return { admins, teachers, students, classes, totalUsers, errors };
-}
+};
 
-export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
+const loadSecondaryDirect = async (prefix: string): Promise<SecondaryStats> => {
   const results = await Promise.allSettled([
-    countResult("questions_count", () => supabase.from("questions").select("id", { count: "exact", head: true })),
-    countResult("exams_count", () => supabase.from("exams").select("id", { count: "exact", head: true })),
-    countResult("attempts_count", () => supabase.from("attempts").select("id", { count: "exact", head: true })),
+    countResult(`${prefix}_questions`, () => supabase.from("questions").select("id", { count: "exact", head: true })),
+    countResult(`${prefix}_exams`, () => supabase.from("exams").select("id", { count: "exact", head: true })),
+    countResult(`${prefix}_attempts`, () => supabase.from("attempts").select("id", { count: "exact", head: true })),
     retrySupabase<Array<{ score: number | null; max_score: number | null }>>(
       () => supabase.from("attempts").select("score, max_score").eq("status", "submitted"),
-      "attempt_scores"
+      `${prefix}_attempt_scores`
     ),
     retrySupabase<Array<{ id: string; title: string; status: string; time_limit_minutes: number }>>(
       () => supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
-      "recent_exams"
+      `${prefix}_recent_exams`
     ),
   ]);
 
   const errors: string[] = [];
-  const secondaryNumber = (index: 0 | 1 | 2, label: string) => {
+  const numberAt = (index: 0 | 1 | 2, label: string) => {
     const result = results[index];
     if (result.status === "fulfilled") return result.value;
     errors.push(errorText(label, result.reason));
@@ -200,29 +238,60 @@ export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
   if (results[3].status === "fulfilled") {
     const scored = (results[3].value.data ?? []).filter((r) => Number(r.max_score) > 0);
     avgScore = scored.length === 0 ? 0 : Math.round(scored.reduce((acc, r) => acc + (Number(r.score) / Number(r.max_score)) * 100, 0) / scored.length);
-  } else {
-    errors.push(errorText("โหลดคะแนนเฉลี่ยไม่สำเร็จ", results[3].reason));
-  }
+  } else errors.push(errorText("โหลดคะแนนเฉลี่ยไม่สำเร็จ", results[3].reason));
 
-  let recentExams: SecondaryStats["recentExams"] = [];
-  if (results[4].status === "fulfilled") recentExams = results[4].value.data ?? [];
-  else errors.push(errorText("โหลดข้อสอบล่าสุดไม่สำเร็จ", results[4].reason));
+  const recentExams = results[4].status === "fulfilled" ? results[4].value.data ?? [] : [];
+  if (results[4].status === "rejected") errors.push(errorText("โหลดข้อสอบล่าสุดไม่สำเร็จ", results[4].reason));
 
   return {
-    questions: secondaryNumber(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ"),
-    exams: secondaryNumber(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ"),
-    attempts: secondaryNumber(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ"),
+    questions: numberAt(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ"),
+    exams: numberAt(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ"),
+    attempts: numberAt(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ"),
     avgScore,
     recentExams,
     errors,
   };
+};
+
+export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStats> {
+  try {
+    const summary = await loadDashboardSummary(force);
+    return {
+      admins: summary.admins,
+      teachers: summary.teachers,
+      students: summary.students,
+      classes: summary.classes,
+      totalUsers: summary.totalUsers,
+      errors: [],
+    };
+  } catch (summaryError) {
+    const fallback = await loadPrimaryDirect("primary_fallback");
+    return { ...fallback, errors: fallback.errors.length > 0 ? [errorText("โหลดสถิติหลักแบบรวมไม่สำเร็จ", summaryError), ...fallback.errors] : [] };
+  }
 }
 
-export async function loadSchoolStats(): Promise<SchoolStats> {
-  const [primary, secondary] = await Promise.all([
-    loadPrimarySchoolStats().catch((error) => emptyPrimary([errorText("โหลดสถิติหลักไม่สำเร็จ", error)])),
-    loadSecondarySchoolStats(),
-  ]);
+export async function loadSecondarySchoolStats(force = false): Promise<SecondaryStats> {
+  try {
+    const summary = await loadDashboardSummary(force);
+    return {
+      questions: summary.questions,
+      exams: summary.exams,
+      attempts: summary.attempts,
+      avgScore: summary.avgScore,
+      recentExams: summary.recentExams,
+      errors: [],
+    };
+  } catch (summaryError) {
+    const fallback = await loadSecondaryDirect("secondary_fallback");
+    return { ...fallback, errors: fallback.errors.length > 0 ? [errorText("โหลดสถิติรองแบบรวมไม่สำเร็จ", summaryError), ...fallback.errors] : [] };
+  }
+}
 
-  return { ...primary, ...secondary, errors: [...primary.errors, ...secondary.errors] };
+export async function loadSchoolStats(force = false): Promise<SchoolStats> {
+  try {
+    return await loadDashboardSummary(force);
+  } catch (summaryError) {
+    const [primary, secondary] = await Promise.all([loadPrimaryDirect("school_fallback"), loadSecondaryDirect("school_fallback")]);
+    return { ...primary, ...secondary, errors: [errorText("โหลดสถิติแบบรวมไม่สำเร็จ", summaryError), ...primary.errors, ...secondary.errors] };
+  }
 }
