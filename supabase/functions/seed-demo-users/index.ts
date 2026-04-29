@@ -52,8 +52,9 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey || !publishableKey) {
     return new Response(JSON.stringify({ error: "Missing backend seed configuration" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -61,6 +62,9 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const publicClient = createClient(supabaseUrl, publishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
@@ -71,18 +75,40 @@ Deno.serve(async (req) => {
       const existing = await findUserByEmail(admin, account.email);
       const metadata = { full_name: account.full_name, role: account.role };
 
-      const userResult = existing
-        ? await admin.auth.admin.updateUserById(existing.id, {
-            password: account.password,
-            email_confirm: true,
-            user_metadata: metadata,
-          })
-        : await admin.auth.admin.createUser({
+      let recreated = false;
+      let userResult;
+
+      if (existing) {
+        const loginCheck = await publicClient.auth.signInWithPassword({
+          email: account.email,
+          password: account.password,
+        });
+        await publicClient.auth.signOut();
+
+        if (loginCheck.error) {
+          const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
+          if (deleteError) throw deleteError;
+          recreated = true;
+          userResult = await admin.auth.admin.createUser({
             email: account.email,
             password: account.password,
             email_confirm: true,
             user_metadata: metadata,
           });
+        } else {
+          userResult = await admin.auth.admin.updateUserById(existing.id, {
+            email_confirm: true,
+            user_metadata: metadata,
+          });
+        }
+      } else {
+        userResult = await admin.auth.admin.createUser({
+            email: account.email,
+            password: account.password,
+            email_confirm: true,
+            user_metadata: metadata,
+          });
+      }
 
       if (userResult.error || !userResult.data.user) {
         throw userResult.error ?? new Error("ไม่พบข้อมูลผู้ใช้หลังสร้างบัญชี");
@@ -104,10 +130,12 @@ Deno.serve(async (req) => {
       results.push({
         email: account.email,
         role: account.role,
-        status: existing ? "already_exists" : "created",
-        message: existing
+        status: existing && !recreated ? "already_exists" : "created",
+        message: existing && !recreated
           ? "มีอยู่แล้ว — ตรวจสอบโปรไฟล์และรหัสผ่านให้พร้อมใช้งานแล้ว"
-          : "สร้างใหม่และยืนยันอีเมลพร้อมใช้งานแล้ว",
+          : recreated
+            ? "สร้างใหม่แทนบัญชีเดิมที่เข้าสู่ระบบไม่ได้ และยืนยันอีเมลพร้อมใช้งานแล้ว"
+            : "สร้างใหม่และยืนยันอีเมลพร้อมใช้งานแล้ว",
       });
     } catch (error) {
       results.push({
