@@ -10,7 +10,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const repairTried = useRef(false);
 
   // Auto-repair only when the backend confirms the profile is missing.
-  // For transient database/schema-cache errors, show a retry instead of spinning forever.
+  // Transient database/schema-cache errors are retried inside AuthProvider and may keep a cached profile alive.
   useEffect(() => {
     if (!loading && user && !profile && profileStatus.state === "missing" && !repairTried.current) {
       repairTried.current = true;
@@ -45,6 +45,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
+  const transientWarning = profileStatus.state === "stale" ? (
+    <div className="fixed inset-x-4 top-4 z-50 mx-auto max-w-xl rounded-lg border bg-card px-4 py-3 text-sm text-card-foreground shadow-lg">
+      {profileStatus.message}
+      <Button onClick={() => refreshProfile()} variant="link" className="ml-2 h-auto p-0 align-baseline">ลองใหม่</Button>
+    </div>
+  ) : null;
+
   if (profile && profile.approval_status && profile.approval_status !== "approved") {
     const status = profile.approval_status;
     return (
@@ -68,5 +75,5 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return <>{transientWarning}{children}</>;
 }

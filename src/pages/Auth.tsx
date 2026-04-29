@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Sigma, Loader2, UserCog, GraduationCap, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ export default function Auth() {
   const { user, signIn, loading } = useAuth();
   const { session: studentSession, setSession: setStudentSession } = useStudentSession();
   const nav = useNavigate();
+  const location = useLocation();
+  const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
 
   const [tab, setTab] = useState<Tab>("staff");
   const [staffMode, setStaffMode] = useState<StaffMode>("login");
@@ -47,7 +49,7 @@ export default function Auth() {
   const [studentBusy, setStudentBusy] = useState(false);
   const [matches, setMatches] = useState<EnrollmentRow[] | null>(null);
 
-  if (!loading && user) return <Navigate to="/" replace />;
+  if (!loading && user) return <Navigate to={fromPath} replace />;
   if (studentSession) return <Navigate to="/student/exams" replace />;
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -58,7 +60,7 @@ export default function Auth() {
     if (error) toast.error("เข้าสู่ระบบไม่สำเร็จ: " + error);
     else {
       toast.success("ยินดีต้อนรับ");
-      nav("/", { replace: true });
+      nav(fromPath, { replace: true });
     }
   };
 

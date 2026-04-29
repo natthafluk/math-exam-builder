@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Role } from "./types";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -16,7 +17,7 @@ interface Profile {
 }
 
 interface ProfileLoadStatus {
-  state: "idle" | "loading" | "ok" | "missing" | "error";
+  state: "idle" | "loading" | "ok" | "missing" | "error" | "stale";
   message?: string;
 }
 
@@ -34,6 +35,14 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const profileMemoryCache = new Map<string, Profile>();
+const transientProfileError = (message: string) =>
+  /schema cache|database client|retrying/i.test(message);
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const readCachedProfile = (uid: string): Profile | null => profileMemoryCache.get(uid) ?? null;
+const writeCachedProfile = (profile: Profile) => profileMemoryCache.set(profile.id, profile);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -42,25 +51,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileStatus, setProfileStatus] = useState<ProfileLoadStatus>({ state: "idle" });
 
   const loadProfile = useCallback(async (uid: string) => {
-    setProfileStatus({ state: "loading", message: `กำลังโหลดโปรไฟล์ผ่าน RPC สำหรับ id=${uid}` });
-    try {
-      const { data, error } = await supabase.rpc("get_my_profile");
-      if (error) {
-        setProfile(null);
-        setProfileStatus({ state: "error", message: `ผิดพลาดขณะโหลดโปรไฟล์ผ่าน RPC: ${error.message}` });
+    const cached = readCachedProfile(uid);
+    if (cached) setProfile(cached);
+    setProfileStatus({ state: "loading", message: cached ? "กำลังอัปเดตโปรไฟล์อีกครั้ง" : "กำลังโหลดโปรไฟล์" });
+
+    let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        const { data, error } = await supabase.rpc("get_my_profile");
+        if (error) throw new Error(error.message);
+        if (!data) {
+          setProfile(null);
+          setProfileStatus({ state: "missing", message: "ยังไม่พบโปรไฟล์ที่ตรงกับบัญชีนี้" });
+          return;
+        }
+        const nextProfile = data as Profile;
+        setProfile(nextProfile);
+        writeCachedProfile(nextProfile);
+        setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
         return;
+      } catch (e) {
+        lastMessage = e instanceof Error ? e.message : String(e);
+        if (!transientProfileError(lastMessage) || attempt === 5) break;
+        setProfileStatus({ state: "loading", message: `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}` });
+        await wait(350 * attempt);
       }
-      if (!data) {
-        setProfile(null);
-        setProfileStatus({ state: "missing", message: "RPC ทำงานแล้ว แต่ยังไม่พบโปรไฟล์ที่ตรงกับบัญชีนี้" });
-        return;
-      }
-      setProfile(data as Profile);
-      setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
-    } catch (e) {
-      setProfile(null);
-      setProfileStatus({ state: "error", message: e instanceof Error ? e.message : String(e) });
     }
+
+    if (cached && transientProfileError(lastMessage)) {
+      setProfile(cached);
+      setProfileStatus({ state: "stale", message: "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว เพราะฐานข้อมูลตอบกลับช้า" });
+      toast.warning("โหลดโปรไฟล์สดไม่สำเร็จชั่วคราว ระบบใช้ข้อมูลบัญชีล่าสุดให้ก่อน");
+      return;
+    }
+    setProfile(null);
+    setProfileStatus({ state: "error", message: `ผิดพลาดขณะโหลดโปรไฟล์ผ่าน RPC: ${lastMessage}` });
   }, []);
 
   useEffect(() => {
@@ -99,12 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileStatus({ state: "loading", message: "กำลังซ่อมโปรไฟล์ผ่าน RPC" });
     const { data, error } = await supabase.rpc("repair_my_profile");
     if (error) {
-      setProfile(null);
       setProfileStatus({ state: "error", message: `ซ่อมโปรไฟล์ผ่าน RPC ไม่สำเร็จ: ${error.message}` });
       return { error: error.message };
     }
     if (data) {
-      setProfile(data as Profile);
+      const repaired = data as Profile;
+      setProfile(repaired);
+      writeCachedProfile(repaired);
       setProfileStatus({ state: "ok", message: "ซ่อมและโหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
     } else {
       await loadProfile(user.id);
@@ -124,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => {
       await supabase.auth.signOut();
+      setProfile(null);
+      setProfileStatus({ state: "idle" });
     },
     refreshProfile: async () => {
       if (user) await loadProfile(user.id);
