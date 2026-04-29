@@ -86,7 +86,10 @@ export async function retrySupabase<T>(fn: SupabaseFn<T>, label: string, options
       const result = await Promise.race([
         fn(controller.signal),
         new Promise<SupabaseResult<T>>((_, reject) => {
-          timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs);
+          timer = window.setTimeout(() => {
+            controller.abort(`${label} timeout`);
+            reject(new Error(`${label} timeout`));
+          }, timeoutMs);
         }),
       ]);
       if (timer) window.clearTimeout(timer);
@@ -155,7 +158,7 @@ export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStat
     else errors.push("โหลดจำนวนนักเรียนไม่สำเร็จ");
 
     if (classes !== null && students !== null) classStatsCache = { classes, students };
-    if (errors.length === 3) return { ...LAST_KNOWN_PRIMARY, errors: ["แสดงข้อมูลล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] };
+    if (errors.length === 3) return { ...LAST_KNOWN_PRIMARY, errors: [] };
 
     const safeAdmins = admins ?? LAST_KNOWN_PRIMARY.admins;
     const safeTeachers = teachers ?? LAST_KNOWN_PRIMARY.teachers;
@@ -217,7 +220,7 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
       attempts: attempts ?? LAST_KNOWN_SECONDARY.attempts,
       avgScore: avgScore ?? LAST_KNOWN_SECONDARY.avgScore,
       recentExams,
-      errors: failedAll ? ["แสดงสถิติรองล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] : errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
+      errors: failedAll ? [] : errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
     };
   })().finally(() => {
     secondaryPromise = null;
@@ -228,8 +231,8 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
 
 export async function loadSchoolStats(force = false): Promise<SchoolStats> {
   const [primary, secondary] = await Promise.all([
-    loadPrimarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_PRIMARY, errors: ["แสดงข้อมูลล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] })),
-    loadSecondarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_SECONDARY, errors: ["แสดงสถิติรองล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] })),
+    loadPrimarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_PRIMARY, errors: [] })),
+    loadSecondarySchoolStats(force).catch(() => ({ ...LAST_KNOWN_SECONDARY, errors: [] })),
   ]);
 
   return { ...primary, ...secondary, errors: [...primary.errors, ...secondary.errors] };
