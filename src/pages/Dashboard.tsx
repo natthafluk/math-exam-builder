@@ -117,6 +117,11 @@ function AdminDash() {
 
   return (
     <AppLayout title="Dashboard">
+      {loadError && (
+        <Card className="p-4 mb-4 bg-destructive/10 text-destructive text-sm">
+          โหลดสถิติไม่สำเร็จ: {loadError}
+        </Card>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={totalUsers} hint="ผู้ดูแล + ครู + นักเรียน" />
         <Stat icon={BookOpen} label="ข้อสอบในคลัง" value={stats?.questions ?? 0} tone="accent" />
