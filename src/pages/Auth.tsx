@@ -50,6 +50,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [requestedRole, setRequestedRole] = useState<"teacher" | "admin">("teacher");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -77,8 +78,12 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (!password) {
+      toast.error("กรุณากรอกรหัสผ่าน");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("รหัสผ่านและการยืนยันไม่ตรงกัน");
       return;
     }
     setBusy(true);
@@ -262,9 +267,15 @@ export default function Auth() {
                     <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="password">รหัสผ่าน {staffMode === "signup" && <span className="text-muted-foreground text-xs">(อย่างน้อย 6 ตัว)</span>}</Label>
+                    <Label htmlFor="password">รหัสผ่าน</Label>
                     <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
                   </div>
+                  {staffMode === "signup" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
+                      <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••" />
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     {staffMode === "login" ? "เข้าสู่ระบบ" : "สมัครและรออนุมัติ"}
