@@ -93,6 +93,10 @@
 @layer components {
   .math-display .katex { font-size: 1.05em; }
   .math-display .katex-display { margin: 0.4em 0; }
+  /* Defensive: ensure no duplicate MathML/fallback text is ever visible */
+  .math-display .katex-mathml,
+  .math-display annotation,
+  .math-display .katex-html .katex-mathml { display: none !important; }
 
   .surface {
     @apply bg-card border border-border rounded-lg;
