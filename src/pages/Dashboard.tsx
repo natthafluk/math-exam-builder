@@ -40,51 +40,72 @@ function Stat({ icon: Icon, label, value, hint, tone = "primary" }: any) {
 }
 
 function AdminDash() {
-  const { users, questions, exams, attempts } = useStore();
+  const [stats, setStats] = useState<{
+    admins: number; teachers: number; students: number;
+    questions: number; exams: number; attempts: number;
+  } | null>(null);
+  const [recentExams, setRecentExams] = useState<Array<{ id: string; title: string; status: string; time_limit_minutes: number }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const opts = { count: "exact" as const, head: true };
+      const [aRes, tRes, sRes, qRes, eRes, atRes, exList] = await Promise.all([
+        supabase.from("profiles").select("id", opts).eq("role", "admin"),
+        supabase.from("profiles").select("id", opts).eq("role", "teacher"),
+        supabase.from("profiles").select("id", opts).eq("role", "student"),
+        supabase.from("questions").select("id", opts),
+        supabase.from("exams").select("id", opts),
+        supabase.from("attempts").select("id", opts),
+        supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
+      ]);
+      if (cancelled) return;
+      setStats({
+        admins: aRes.count ?? 0,
+        teachers: tRes.count ?? 0,
+        students: sRes.count ?? 0,
+        questions: qRes.count ?? 0,
+        exams: eRes.count ?? 0,
+        attempts: atRes.count ?? 0,
+      });
+      setRecentExams((exList.data ?? []) as any);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const totalUsers = stats ? stats.admins + stats.teachers + stats.students : 0;
+
   return (
-    <AppLayout title="แดชบอร์ดผู้ดูแลระบบ">
+    <AppLayout title="Dashboard">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={users.length} hint="ครู นักเรียน และผู้ดูแล" />
-        <Stat icon={BookOpen} label="ข้อในคลัง" value={questions.length} tone="accent" />
-        <Stat icon={ClipboardList} label="ชุดข้อสอบ" value={exams.length} tone="success" />
-        <Stat icon={TrendingUp} label="การทำข้อสอบ" value={attempts.length} tone="warning" />
+        <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={totalUsers} hint="ผู้ดูแล + ครู + นักเรียน" />
+        <Stat icon={BookOpen} label="ข้อในคลัง" value={stats?.questions ?? 0} tone="accent" />
+        <Stat icon={ClipboardList} label="ชุดข้อสอบ" value={stats?.exams ?? 0} tone="success" />
+        <Stat icon={TrendingUp} label="การทำข้อสอบ" value={stats?.attempts ?? 0} tone="warning" />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 mt-6">
-        <Card className="p-5">
-          <h3 className="font-semibold mb-3">สรุปบทบาทผู้ใช้</h3>
-          <div className="space-y-2">
-            {(["admin", "teacher", "student"] as const).map((r) => {
-              const c = users.filter((u) => u.role === r).length;
-              const pct = (c / users.length) * 100;
-              return (
-                <div key={r}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="capitalize">
-                      {r === "admin" ? "ผู้ดูแลระบบ" : r === "teacher" ? "ครู" : "นักเรียน"}
-                    </span>
-                    <span className="text-muted-foreground">{c} คน</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={stats?.admins ?? 0} tone="primary" />
+        <Stat icon={UserCog} label="ครู" value={stats?.teachers ?? 0} tone="accent" />
+        <Stat icon={GradIcon} label="นักเรียน" value={stats?.students ?? 0} tone="success" />
+      </div>
+
+      <div className="mt-6">
         <Card className="p-5">
           <h3 className="font-semibold mb-3">ข้อสอบใหม่ล่าสุด</h3>
           <ul className="divide-y divide-border">
-            {exams.slice(0, 5).map((e) => (
+            {recentExams.map((e) => (
               <li key={e.id} className="py-2.5 flex items-center justify-between">
                 <div>
                   <div className="font-medium text-sm">{e.title}</div>
-                  <div className="text-xs text-muted-foreground">{e.questions.length} ข้อ • {e.timeLimitMinutes} นาที</div>
+                  <div className="text-xs text-muted-foreground">{e.time_limit_minutes} นาที</div>
                 </div>
                 <span className="chip bg-primary-soft text-primary">{e.status}</span>
               </li>
             ))}
+            {recentExams.length === 0 && (
+              <li className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีข้อสอบ</li>
+            )}
           </ul>
         </Card>
       </div>
