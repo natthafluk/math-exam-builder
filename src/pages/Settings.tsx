@@ -4,8 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Save } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function Settings() {
   return (
