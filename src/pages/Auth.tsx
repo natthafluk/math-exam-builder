@@ -267,8 +267,16 @@ export default function Auth() {
                     <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="password">รหัสผ่าน {staffMode === "signup" && <span className="text-muted-foreground text-xs">(อย่างน้อย 6 ตัว)</span>}</Label>
+                    <Label htmlFor="password">รหัสผ่าน</Label>
                     <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+                  </div>
+                  {staffMode === "signup" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
+                      <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••" />
+                    </div>
+                  )}
+                  <div className="hidden">{/* spacer */}</div>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
