@@ -38,7 +38,10 @@ export default function UsersPage() {
   }, []);
 
   return (
-    <AppLayout title="ผู้ใช้และบทบาท">
+    <AppLayout title="ผู้ใช้ระบบและบทบาท">
+      <div className="text-sm text-muted-foreground mb-3">
+        แสดงเฉพาะผู้ดูแลระบบและครูที่ล็อกอินด้วยอีเมล/รหัสผ่าน — นักเรียนจัดการผ่านเมนู “ห้องเรียน”
+      </div>
       <Card className="p-0 overflow-hidden">
         {loading ? (
           <div className="p-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
