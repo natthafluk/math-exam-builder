@@ -138,12 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileStatus({ state: "loading", message: "กำลังซ่อมโปรไฟล์ผ่าน RPC" });
     const { data, error } = await supabase.rpc("repair_my_profile");
     if (error) {
-      setProfile(null);
       setProfileStatus({ state: "error", message: `ซ่อมโปรไฟล์ผ่าน RPC ไม่สำเร็จ: ${error.message}` });
       return { error: error.message };
     }
     if (data) {
-      setProfile(data as Profile);
+      const repaired = data as Profile;
+      setProfile(repaired);
+      writeCachedProfile(repaired);
       setProfileStatus({ state: "ok", message: "ซ่อมและโหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
     } else {
       await loadProfile(user.id);
@@ -163,6 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => {
       await supabase.auth.signOut();
+      setProfile(null);
+      setProfileStatus({ state: "idle" });
     },
     refreshProfile: async () => {
       if (user) await loadProfile(user.id);
