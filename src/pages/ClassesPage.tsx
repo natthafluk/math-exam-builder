@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Plus, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -129,11 +129,16 @@ function CreateClassDialog({ open, onOpenChange, onCreated }: { open: boolean; o
       _grade_level: grade.trim(),
       _subject_code: code.trim(),
     });
-    setBusy(false);
-    if (error) { toast.error("สร้างห้องเรียนไม่สำเร็จ: " + dbErrorMessage(error.message)); return; }
+    if (error) {
+      setBusy(false);
+      toast.error("สร้างห้องเรียนไม่สำเร็จ: " + dbErrorMessage(error.message));
+      return;
+    }
     toast.success("สร้างห้องเรียนแล้ว");
     setName(""); setGrade(""); setCode("");
-    onOpenChange(false); onCreated();
+    await onCreated();
+    setBusy(false);
+    onOpenChange(false);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
