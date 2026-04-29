@@ -19,15 +19,20 @@ interface StoreCtx {
   addExam: (e: Exam) => void;
   updateExam: (e: Exam) => void;
   saveAttempt: (a: Attempt) => void;
+  setUserRole: (id: string, role: Role) => void;
+  addUser: (u: User) => void;
+  deleteUser: (id: string) => void;
+  addTopic: (t: Topic) => void;
+  deleteTopic: (id: string) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [users] = useState<User[]>(seedUsers);
+  const [users, setUsers] = useState<User[]>(seedUsers);
   const [currentUserId, setCurrentUserId] = useState("u-t1");
   const [classes] = useState<ClassRoom[]>(seedClasses);
-  const [topics] = useState<Topic[]>(seedTopics);
+  const [topics, setTopics] = useState<Topic[]>(seedTopics);
   const [questions, setQuestions] = useState<Question[]>(seedQuestions);
   const [exams, setExams] = useState<Exam[]>(seedExams);
   const [attempts, setAttempts] = useState<Attempt[]>(seedAttempts);
@@ -45,6 +50,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const exists = p.some((x) => x.id === a.id);
       return exists ? p.map((x) => (x.id === a.id ? a : x)) : [a, ...p];
     }),
+    setUserRole: (id, role) => setUsers((p) => p.map((u) => (u.id === id ? { ...u, role } : u))),
+    addUser: (u) => setUsers((p) => [...p, u]),
+    deleteUser: (id) => setUsers((p) => p.filter((u) => u.id !== id)),
+    addTopic: (t) => setTopics((p) => [...p, t]),
+    deleteTopic: (id) => setTopics((p) => p.filter((t) => t.id !== id)),
   }), [currentUser, users, classes, topics, questions, exams, attempts]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
