@@ -207,11 +207,14 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
     const recentExams = results[4].status === "fulfilled" ? results[4].value.data ?? [] : [];
     if (results[4].status === "rejected") errors.push("โหลดข้อสอบล่าสุดไม่สำเร็จ");
 
+    const questions = numberAt(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ");
+    const exams = numberAt(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ");
+    const attempts = numberAt(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ");
     const failedAll = errors.length >= 5;
     return {
-      questions: numberAt(0, "โหลดจำนวนข้อสอบในคลังไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.questions,
-      exams: numberAt(1, "โหลดจำนวนชุดข้อสอบไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.exams,
-      attempts: numberAt(2, "โหลดจำนวนการส่งข้อสอบไม่สำเร็จ") ?? LAST_KNOWN_SECONDARY.attempts,
+      questions: questions ?? LAST_KNOWN_SECONDARY.questions,
+      exams: exams ?? LAST_KNOWN_SECONDARY.exams,
+      attempts: attempts ?? LAST_KNOWN_SECONDARY.attempts,
       avgScore: avgScore ?? LAST_KNOWN_SECONDARY.avgScore,
       recentExams,
       errors: failedAll ? ["แสดงสถิติรองล่าสุดที่ยืนยันแล้ว เพราะฐานข้อมูลตอบกลับช้า"] : errors.length > 0 ? ["โหลดสถิติรองบางส่วนไม่สำเร็จ"] : [],
