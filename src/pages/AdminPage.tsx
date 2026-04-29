@@ -50,10 +50,10 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
 
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async (force = false) => {
     setStatsLoading(true);
     setStatsError(null);
-    loadPrimarySchoolStats()
+    loadPrimarySchoolStats(force)
       .then((nextStats) => {
         setPrimaryStats(nextStats);
         setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
@@ -65,7 +65,7 @@ export default function AdminPage() {
       })
       .finally(() => setStatsLoading(false));
 
-    loadSecondarySchoolStats()
+    loadSecondarySchoolStats(force)
       .then((nextStats) => {
         setSecondaryStats(nextStats);
         if (nextStats.errors.length > 0) setStatsError((prev) => [prev, nextStats.errors.join(" / ")].filter(Boolean).join(" / "));
@@ -135,7 +135,7 @@ export default function AdminPage() {
         {statsError && (
           <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <span>{statsError}</span>
-            <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => loadStats(true)} className="gap-1.5 self-start sm:self-auto">
               <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
             </Button>
           </div>
