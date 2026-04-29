@@ -12,9 +12,12 @@ import { cn } from "@/lib/utils";
 const navByRole = {
   admin: [
     { to: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
+    { to: "/admin", icon: Users, label: "ศูนย์ผู้ดูแล" },
     { to: "/users", icon: Users, label: "ผู้ใช้และบทบาท" },
+    { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
     { to: "/exams", icon: ClipboardList, label: "ข้อสอบทั้งหมด" },
+    { to: "/results", icon: BarChart3, label: "ผลคะแนนรวม" },
     { to: "/analytics", icon: BarChart3, label: "สถิติระบบ" },
     { to: "/settings", icon: Settings, label: "ตั้งค่า" },
   ],
@@ -24,7 +27,10 @@ const navByRole = {
     { to: "/questions/new", icon: FilePlus2, label: "สร้างข้อสอบ" },
     { to: "/exams", icon: ClipboardList, label: "ชุดข้อสอบ" },
     { to: "/exams/new", icon: FilePlus2, label: "สร้างชุดข้อสอบ" },
-    { to: "/analytics", icon: BarChart3, label: "ผลการเรียน" },
+    { to: "/assignments", icon: ClipboardList, label: "งานที่มอบหมาย" },
+    { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
+    { to: "/results", icon: BarChart3, label: "ผลคะแนน" },
+    { to: "/analytics", icon: BarChart3, label: "สถิติ" },
   ],
   student: [
     { to: "/", icon: LayoutDashboard, label: "หน้าหลัก" },

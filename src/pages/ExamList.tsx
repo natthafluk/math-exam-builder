@@ -44,10 +44,10 @@ export default function ExamList() {
                 <Button asChild variant="outline" size="sm" className="flex-1">
                   <Link to={`/exams/${e.id}`}>แก้ไข</Link>
                 </Button>
-                <Button asChild variant="outline" size="sm">
+                <Button asChild variant="outline" size="sm" aria-label={`พิมพ์ข้อสอบ ${e.title}`} title="พิมพ์ / PDF">
                   <Link to={`/exams/${e.id}/print`}><Printer className="w-4 h-4" /></Link>
                 </Button>
-                <Button asChild variant="outline" size="sm">
+                <Button asChild variant="outline" size="sm" aria-label={`ดูผลคะแนน ${e.title}`} title="ผลคะแนน">
                   <Link to={`/exams/${e.id}/results`}><BarChart3 className="w-4 h-4" /></Link>
                 </Button>
               </div>

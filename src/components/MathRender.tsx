@@ -9,7 +9,7 @@ interface Props {
 
 /**
  * Renders text containing inline ($...$) and display ($$...$$) LaTeX, plus plain Thai text.
- * Safely escapes the non-math segments.
+ * Uses HTML-only output to avoid duplicate MathML reading in screen readers / DOM.
  */
 export function MathRender({ text, className = "", block = false }: Props) {
   const html = useMemo(() => renderMixed(text ?? ""), [text]);
@@ -30,7 +30,6 @@ function escapeHtml(s: string) {
 }
 
 function renderMixed(input: string): string {
-  // Split on $$...$$ and $...$
   const parts: { type: "text" | "math"; value: string; display: boolean }[] = [];
   const re = /(\$\$[^$]+\$\$|\$[^$\n]+\$)/g;
   let last = 0;
@@ -55,6 +54,7 @@ function renderMixed(input: string): string {
           displayMode: p.display,
           throwOnError: false,
           strict: "ignore",
+          output: "html",
         });
       } catch {
         return `<code>${escapeHtml(p.value)}</code>`;

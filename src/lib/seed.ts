@@ -216,4 +216,15 @@ export const seedAttempts: Attempt[] = [
     answers: { "q-1": "a", "q-2": "d", "q-7": "false", "q-9": "" },
     score: 5, maxScore: 20, submittedAt: now, status: "graded",
   },
+  {
+    id: "at-4", examId: "e-2", studentId: "u-s4",
+    answers: { "q-4": "12x^3 - 4x + 5", "q-5": "b", "q-10": "c" },
+    score: 10, maxScore: 15, submittedAt: now, status: "graded",
+  },
+  {
+    id: "at-5", examId: "e-2", studentId: "u-s5",
+    answers: { "q-4": "12x^3-4x+5", "q-5": "b", "q-10": "c" },
+    score: 15, maxScore: 15, submittedAt: now, status: "graded",
+  },
 ];
+
