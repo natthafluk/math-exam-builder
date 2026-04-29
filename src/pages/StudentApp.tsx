@@ -208,13 +208,23 @@ export function StudentTakeExam() {
   }
 
   if (result) {
-    const pct = result.max_score > 0 ? Math.round((result.score / result.max_score) * 100) : 0;
+    const pct = result.revealed && result.score != null && result.max_score > 0
+      ? Math.round((result.score / result.max_score) * 100) : 0;
     return (
-      <StudentShell title="ผลคะแนน">
+      <StudentShell title="ส่งคำตอบเรียบร้อย">
         <Card className="p-8 text-center space-y-4">
           <GraduationCap className="w-12 h-12 mx-auto text-accent" />
-          <div className="text-4xl font-bold tabular-nums">{result.score}/{result.max_score}</div>
-          <div className={`text-lg font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+          {result.revealed && result.score != null ? (
+            <>
+              <div className="text-4xl font-bold tabular-nums">{result.score}/{result.max_score}</div>
+              <div className={`text-lg font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-2xl font-semibold">บันทึกคำตอบแล้ว</div>
+              <div className="text-sm text-muted-foreground">คะแนนและเฉลยจะแสดงเมื่อครูเปิดเผยผลสอบ</div>
+            </div>
+          )}
           <Button onClick={() => nav("/student/exams")} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> กลับไปหน้าข้อสอบ</Button>
         </Card>
       </StudentShell>
