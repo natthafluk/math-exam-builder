@@ -132,7 +132,7 @@ export default function AdminPage() {
               { label: "ครู", value: dbStats.teachers },
               { label: "นักเรียน", value: dbStats.students },
               { label: "ห้องเรียน", value: dbStats.classes },
-              { label: "ข้อในคลัง", value: dbStats.questions },
+              { label: "ข้อสอบในคลัง", value: dbStats.questions },
               { label: "ชุดข้อสอบ", value: dbStats.exams },
               { label: "การส่งทั้งหมด", value: dbStats.attempts },
               { label: "คะแนนเฉลี่ย %", value: dbStats.avgScore },

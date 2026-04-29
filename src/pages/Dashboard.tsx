@@ -79,7 +79,7 @@ function AdminDash() {
     <AppLayout title="Dashboard">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={totalUsers} hint="ผู้ดูแล + ครู + นักเรียน" />
-        <Stat icon={BookOpen} label="ข้อในคลัง" value={stats?.questions ?? 0} tone="accent" />
+        <Stat icon={BookOpen} label="ข้อสอบในคลัง" value={stats?.questions ?? 0} tone="accent" />
         <Stat icon={ClipboardList} label="ชุดข้อสอบ" value={stats?.exams ?? 0} tone="success" />
         <Stat icon={TrendingUp} label="การทำข้อสอบ" value={stats?.attempts ?? 0} tone="warning" />
       </div>
