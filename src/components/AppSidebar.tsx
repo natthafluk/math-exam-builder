@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FilePlus2, ClipboardList, Users,
-  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload,
+  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload, Eye,
 } from "lucide-react";
 import { useStore, roleLabel } from "@/lib/store";
 import { cn } from "@/lib/utils";
