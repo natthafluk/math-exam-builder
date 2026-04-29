@@ -178,6 +178,20 @@ const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
 });
 
 export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
+  try {
+    const summary = await loadDashboardSummary();
+    return {
+      admins: summary.admins,
+      teachers: summary.teachers,
+      students: summary.students,
+      classes: summary.classes,
+      totalUsers: summary.totalUsers,
+      errors: [],
+    };
+  } catch (summaryError) {
+    console.warn("[admin_dashboard_summary] falling back to split primary stats:", messageOf(summaryError));
+  }
+
   const results = await Promise.allSettled([
     retrySupabase<AdminUserRow[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_list_users"),
     loadClassStats(),
@@ -220,6 +234,20 @@ export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
 }
 
 export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
+  try {
+    const summary = await loadDashboardSummary();
+    return {
+      questions: summary.questions,
+      exams: summary.exams,
+      attempts: summary.attempts,
+      avgScore: summary.avgScore,
+      recentExams: summary.recentExams,
+      errors: [],
+    };
+  } catch (summaryError) {
+    console.warn("[admin_dashboard_summary] falling back to split secondary stats:", messageOf(summaryError));
+  }
+
   const results = await Promise.allSettled([
     countResult("questions_count", () => supabase.from("questions").select("id", { count: "exact", head: true })),
     countResult("exams_count", () => supabase.from("exams").select("id", { count: "exact", head: true })),
@@ -265,6 +293,12 @@ export async function loadSecondarySchoolStats(): Promise<SecondaryStats> {
 }
 
 export async function loadSchoolStats(): Promise<SchoolStats> {
+  try {
+    return await loadDashboardSummary();
+  } catch (summaryError) {
+    console.warn("[admin_dashboard_summary] falling back to split school stats:", messageOf(summaryError));
+  }
+
   const [primary, secondary] = await Promise.all([
     loadPrimarySchoolStats().catch((error) => emptyPrimary([errorText("โหลดสถิติหลักไม่สำเร็จ", error)])),
     loadSecondarySchoolStats(),
