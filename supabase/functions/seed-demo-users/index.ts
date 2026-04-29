@@ -52,9 +52,8 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
 
-  if (!supabaseUrl || !serviceRoleKey || !publishableKey) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return new Response(JSON.stringify({ error: "Missing backend seed configuration" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,9 +61,6 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const publicClient = createClient(supabaseUrl, publishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
@@ -79,13 +75,7 @@ Deno.serve(async (req) => {
       let userResult;
 
       if (existing) {
-        const loginCheck = await publicClient.auth.signInWithPassword({
-          email: account.email,
-          password: account.password,
-        });
-        await publicClient.auth.signOut();
-
-        if (loginCheck.error) {
+        if (existing.email?.toLowerCase() === "admin@example.com") {
           const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
           if (deleteError) throw deleteError;
           recreated = true;
