@@ -86,10 +86,11 @@ function AdminDash() {
         <Stat icon={TrendingUp} label="การทำข้อสอบ" value={stats?.attempts ?? 0} tone="warning" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
         <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={stats?.admins ?? 0} tone="primary" />
         <Stat icon={UserCog} label="ครู" value={stats?.teachers ?? 0} tone="accent" />
-        <Stat icon={GraduationCap} label="นักเรียน" value={stats?.students ?? 0} tone="success" />
+        <Stat icon={GraduationCap} label="นักเรียน" value={stats?.students ?? 0} hint="จากทะเบียนห้องเรียน" tone="success" />
+        <Stat icon={GraduationCap} label="ห้องเรียน" value={stats?.classes ?? 0} tone="warning" />
       </div>
 
       <div className="mt-6">
