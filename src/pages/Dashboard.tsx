@@ -51,11 +51,11 @@ function AdminDash() {
 
   const reloadKey = currentUser?.id ?? "";
 
-  const refreshStats = useCallback(() => {
+  const refreshStats = useCallback((force = false) => {
     if (!reloadKey) return;
     setPrimaryLoading(true);
     setPrimaryError(null);
-    loadPrimarySchoolStats()
+    loadPrimarySchoolStats(force)
       .then((nextStats) => {
         setPrimaryStats(nextStats);
         setPrimaryError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
@@ -70,7 +70,7 @@ function AdminDash() {
 
     setSecondaryLoading(true);
     setSecondaryError(null);
-    loadSecondarySchoolStats()
+    loadSecondarySchoolStats(force)
       .then((nextStats) => {
         setSecondaryStats(nextStats);
         setSecondaryError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
@@ -99,7 +99,7 @@ function AdminDash() {
             {primaryError ? `โหลดสถิติหลักไม่สำเร็จ: ${primaryError}` : "โหลดสถิติรองบางส่วนไม่สำเร็จ"}
             {secondaryError ? <div className="mt-1 text-destructive/80">สถิติรอง: {secondaryError}</div> : null}
           </div>
-          <Button variant="outline" size="sm" onClick={refreshStats} className="gap-1.5 self-start sm:self-auto">
+          <Button variant="outline" size="sm" onClick={() => refreshStats(true)} className="gap-1.5 self-start sm:self-auto">
             <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
           </Button>
         </Card>
