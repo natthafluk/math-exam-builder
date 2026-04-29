@@ -908,6 +908,10 @@ export type Database = {
           title: string
         }[]
       }
+      teacher_remove_student_from_class: {
+        Args: { _student_row_id: string }
+        Returns: undefined
+      }
       teacher_set_exam_reveal: {
         Args: { _exam_id: string; _mode: string; _revealed: boolean }
         Returns: {
