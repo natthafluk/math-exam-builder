@@ -29,7 +29,9 @@ export default function UsersPage() {
       const { data, error } = await supabase.rpc("admin_list_users", { _status: null });
       if (cancelled) return;
       if (error) toast.error("โหลดผู้ใช้ไม่สำเร็จ: " + error.message);
-      setUsers((data ?? []) as DbUser[]);
+      // Show only auth users (admin/teacher). Students are managed via "ห้องเรียน".
+      const filtered = ((data ?? []) as DbUser[]).filter((u) => u.role === "admin" || u.role === "teacher");
+      setUsers(filtered);
       setLoading(false);
     })();
     return () => { cancelled = true; };
