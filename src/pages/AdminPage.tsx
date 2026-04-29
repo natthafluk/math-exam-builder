@@ -18,7 +18,7 @@ import type { Role, QuestionStatus } from "@/lib/types";
 
 export default function AdminPage() {
   const {
-    users, questions, exams, attempts, topics,
+    users, questions, exams, attempts, topics, audit, school, setSchool,
     setUserRole, addUser, deleteUser, addTopic, deleteTopic, updateQuestion,
   } = useStore();
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "teacher" as Role });
@@ -71,7 +71,7 @@ export default function AdminPage() {
   };
 
   return (
-    <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ">
+    <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ" breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ศูนย์ผู้ดูแล" }]}>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (
           <Card key={s.label} className="p-5 flex items-start gap-3">
