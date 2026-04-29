@@ -29,6 +29,7 @@ const navByRole = {
     { to: "/assignments", icon: ClipboardList, label: "งานที่มอบหมาย" },
     { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนน" },
+    { to: "/reveal", icon: Eye, label: "เปิดเผยผลสอบ" },
   ],
   student: [
     { to: "/", icon: LayoutDashboard, label: "หน้าหลัก" },
