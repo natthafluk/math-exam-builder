@@ -49,7 +49,7 @@ type RetryOptions = {
   timeoutMs?: number;
 };
 
-const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500], timeoutMs: 1200 };
+const DASHBOARD_RETRY: Required<RetryOptions> = { maxTries: 3, delays: [300, 800, 1500], timeoutMs: 900 };
 
 let classStatsCache: Pick<PrimaryStats, "students" | "classes"> | null = null;
 let usersStatsCache: Pick<PrimaryStats, "admins" | "teachers"> | null = null;
@@ -83,8 +83,8 @@ const loadClassStats = async () => {
   } catch (rpcError) {
     console.warn("[teacher_list_classes_with_students] falling back to direct counts:", messageOf(rpcError));
     const [classesResult, studentsResult] = await Promise.all([
-      retrySupabase(() => supabase.from("classes").select("id", { count: "exact", head: true }), "classes_count_fallback"),
-      retrySupabase(() => supabase.from("class_students").select("id", { count: "exact", head: true }), "class_students_count_fallback"),
+      retrySupabase(() => supabase.from("classes").select("id", { count: "exact", head: true }), "classes_count_fallback", { maxTries: 1, timeoutMs: 900 }),
+      retrySupabase(() => supabase.from("class_students").select("id", { count: "exact", head: true }), "class_students_count_fallback", { maxTries: 1, timeoutMs: 900 }),
     ]);
     classStatsCache = { classes: classesResult.count ?? 0, students: studentsResult.count ?? 0 };
     return classStatsCache;
