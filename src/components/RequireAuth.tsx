@@ -19,6 +19,29 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
   if (!user) return <Navigate to="/auth" replace state={{ from: location }} />;
 
+  if (profile && profile.approval_status && profile.approval_status !== "approved") {
+    const status = profile.approval_status;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="max-w-md w-full text-center space-y-4 border rounded-lg p-6 bg-card">
+          <h1 className="text-lg font-semibold">
+            {status === "pending" ? "บัญชีของคุณรอการอนุมัติ" : "บัญชีนี้ถูกปฏิเสธ"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {status === "pending"
+              ? "ผู้ดูแลระบบจะตรวจสอบและอนุมัติบัญชีของคุณเร็ว ๆ นี้ กรุณาลองเข้าสู่ระบบใหม่ภายหลัง"
+              : "หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ"}
+          </p>
+          <div className="text-xs text-muted-foreground bg-muted/40 rounded-md p-3 text-left">
+            <div><span className="font-medium">อีเมล:</span> <span className="font-mono">{user.email}</span></div>
+            <div><span className="font-medium">บทบาทที่ขอ:</span> {profile.requested_role || profile.role}</div>
+          </div>
+          <Button onClick={() => signOut()} variant="outline" className="w-full">ออกจากระบบ</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     const handleRepair = async () => {
       setBusy(true);

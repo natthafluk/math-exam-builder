@@ -35,6 +35,7 @@ interface EnrollmentRow {
 }
 
 type Tab = "staff" | "student";
+type StaffMode = "login" | "signup";
 
 export default function Auth() {
   const { user, signIn, loading } = useAuth();
@@ -42,11 +43,15 @@ export default function Auth() {
   const nav = useNavigate();
 
   const [tab, setTab] = useState<Tab>("staff");
+  const [staffMode, setStaffMode] = useState<StaffMode>("login");
 
   // Staff state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [requestedRole, setRequestedRole] = useState<"teacher" | "admin">("teacher");
   const [busy, setBusy] = useState(false);
+  const [signupDone, setSignupDone] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedResult[]>([]);
 
@@ -68,6 +73,32 @@ export default function Auth() {
       toast.success("ยินดีต้อนรับ");
       nav("/", { replace: true });
     }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: { full_name: fullName, requested_role: requestedRole },
+      },
+    });
+    if (error) {
+      setBusy(false);
+      toast.error("สมัครไม่สำเร็จ: " + error.message);
+      return;
+    }
+    await supabase.auth.signOut();
+    setBusy(false);
+    setSignupDone(true);
+    toast.success("สมัครสำเร็จ รอผู้ดูแลอนุมัติ");
   };
 
   const quickLogin = async (e: string, p: string) => {
@@ -177,20 +208,75 @@ export default function Auth() {
           </div>
 
           {tab === "staff" ? (
-            <form onSubmit={handleLogin} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">อีเมล</Label>
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
+            signupDone ? (
+              <div className="space-y-3 text-center">
+                <div className="rounded-md bg-primary-soft text-primary p-4 text-sm font-medium">
+                  ✓ สมัครสำเร็จแล้ว<br />
+                  รอผู้ดูแลระบบอนุมัติบัญชีของคุณ
+                </div>
+                <p className="text-xs text-muted-foreground">เมื่อได้รับการอนุมัติ คุณจะสามารถเข้าสู่ระบบด้วยอีเมลและรหัสผ่านนี้ได้ทันที</p>
+                <Button variant="outline" className="w-full" onClick={() => { setSignupDone(false); setStaffMode("login"); }}>
+                  กลับไปหน้าเข้าสู่ระบบ
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">รหัสผ่าน</Label>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
-              </div>
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                เข้าสู่ระบบ
-              </Button>
-            </form>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-md">
+                  <button type="button" onClick={() => setStaffMode("login")}
+                    className={cn("py-1.5 text-xs font-medium rounded transition-colors",
+                      staffMode === "login" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>
+                    เข้าสู่ระบบ
+                  </button>
+                  <button type="button" onClick={() => setStaffMode("signup")}
+                    className={cn("py-1.5 text-xs font-medium rounded transition-colors",
+                      staffMode === "signup" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>
+                    สมัครสมาชิก
+                  </button>
+                </div>
+                <form onSubmit={staffMode === "login" ? handleLogin : handleSignup} className="space-y-3">
+                  {staffMode === "signup" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="fullname">ชื่อ-นามสกุล</Label>
+                        <Input id="fullname" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น สมหญิง ใจดี" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>บทบาทที่ขอ</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setRequestedRole("teacher")}
+                            className={cn("py-2 text-sm rounded-md border transition-colors",
+                              requestedRole === "teacher" ? "border-primary bg-primary-soft text-primary font-medium" : "border-border text-muted-foreground")}>
+                            ครู
+                          </button>
+                          <button type="button" onClick={() => setRequestedRole("admin")}
+                            className={cn("py-2 text-sm rounded-md border transition-colors",
+                              requestedRole === "admin" ? "border-destructive bg-destructive/10 text-destructive font-medium" : "border-border text-muted-foreground")}>
+                            ผู้ดูแลระบบ
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email">อีเมล</Label>
+                    <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password">รหัสผ่าน {staffMode === "signup" && <span className="text-muted-foreground text-xs">(อย่างน้อย 6 ตัว)</span>}</Label>
+                    <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={busy}>
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {staffMode === "login" ? "เข้าสู่ระบบ" : "สมัครและรออนุมัติ"}
+                  </Button>
+                  {staffMode === "signup" && (
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      บัญชีจะใช้งานได้หลังจากผู้ดูแลระบบอนุมัติเท่านั้น
+                    </p>
+                  )}
+                </form>
+              </>
+            )
           ) : !matches ? (
             <form onSubmit={handleStudentSearch} className="space-y-3">
               <div className="space-y-1.5">

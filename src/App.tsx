@@ -30,6 +30,7 @@ import ResultsPage from "./pages/ResultsPage";
 import AdminPage from "./pages/AdminPage";
 import ImportQuestions from "./pages/ImportQuestions";
 import RevealControl from "./pages/RevealControl";
+import Approvals from "./pages/Approvals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/results" element={<Protected><ResultsPage /></Protected>} />
             <Route path="/reveal" element={<Protected><RevealControl /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
+            <Route path="/approvals" element={<Protected><Approvals /></Protected>} />
 
             <Route path="/users" element={<Protected><UsersPage /></Protected>} />
             <Route path="/analytics" element={<Protected><Analytics /></Protected>} />

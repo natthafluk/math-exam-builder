@@ -400,32 +400,47 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           avatar_color: string | null
           avatar_initials: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_color?: string | null
           avatar_initials?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id: string
+          is_super_admin?: boolean
+          requested_role?: Database["public"]["Enums"]["app_role"] | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_color?: string | null
           avatar_initials?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
+          is_super_admin?: boolean
+          requested_role?: Database["public"]["Enums"]["app_role"] | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
@@ -579,6 +594,97 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_approve_user: {
+        Args: {
+          _role?: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          avatar_color: string | null
+          avatar_initials: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_list_users: {
+        Args: { _status?: string }
+        Returns: {
+          approval_status: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"]
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      admin_reject_user: {
+        Args: { _user_id: string }
+        Returns: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          avatar_color: string | null
+          avatar_initials: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_set_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          avatar_color: string | null
+          avatar_initials: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       exam_is_revealed: {
         Args: { _assignment_id: string; _exam_id: string }
         Returns: boolean
@@ -586,12 +692,17 @@ export type Database = {
       get_my_profile: {
         Args: never
         Returns: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           avatar_color: string | null
           avatar_initials: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
@@ -617,15 +728,21 @@ export type Database = {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
       }
+      my_approval_status: { Args: never; Returns: string }
       repair_my_profile: {
         Args: never
         Returns: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           avatar_color: string | null
           avatar_initials: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
+          is_super_admin: boolean
+          requested_role: Database["public"]["Enums"]["app_role"] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
