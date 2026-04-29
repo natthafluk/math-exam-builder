@@ -35,7 +35,7 @@ type DbUser = {
 
 export default function AdminPage() {
   const { profile: me } = useAuth();
-  const { questions, topics, audit, school, setSchool, addTopic, deleteTopic, updateQuestion } = useStore();
+  const { questions, topics, audit, addTopic, deleteTopic, updateQuestion } = useStore();
   const [newTopic, setNewTopic] = useState({ title: "", grade: "ม.4" });
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
@@ -146,28 +146,6 @@ export default function AdminPage() {
         ) : (
           <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
         )}
-      </Card>
-
-      <Card className="p-5 mb-6">
-        <h3 className="font-semibold mb-3">ข้อมูลโรงเรียน</h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">ชื่อโรงเรียน</label>
-            <Input value={school.schoolName} onChange={(e) => setSchool({ ...school, schoolName: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">กลุ่มสาระ</label>
-            <Input value={school.department} onChange={(e) => setSchool({ ...school, department: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">ปีการศึกษา</label>
-            <Input value={school.academicYear} onChange={(e) => setSchool({ ...school, academicYear: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">ภาคเรียน</label>
-            <Input value={school.semester} onChange={(e) => setSchool({ ...school, semester: e.target.value })} className="mt-1" />
-          </div>
-        </div>
       </Card>
 
       <Card className="p-5 mb-6">

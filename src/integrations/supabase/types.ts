@@ -557,6 +557,45 @@ export type Database = {
           },
         ]
       }
+      school_settings: {
+        Row: {
+          academic_year: string
+          allow_print_exam: boolean
+          allow_teacher_create_topic: boolean
+          department: string
+          id: boolean
+          review_before_publish: boolean
+          school_name: string
+          semester: string
+          show_explanations_after_submit: boolean
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          allow_print_exam?: boolean
+          allow_teacher_create_topic?: boolean
+          department?: string
+          id?: boolean
+          review_before_publish?: boolean
+          school_name?: string
+          semester?: string
+          show_explanations_after_submit?: boolean
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          allow_print_exam?: boolean
+          allow_teacher_create_topic?: boolean
+          department?: string
+          id?: boolean
+          review_before_publish?: boolean
+          school_name?: string
+          semester?: string
+          show_explanations_after_submit?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           created_at: string
