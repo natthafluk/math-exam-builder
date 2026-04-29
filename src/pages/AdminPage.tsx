@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Role, QuestionStatus } from "@/lib/types";
+import { loadSchoolStats, retrySupabase, type SchoolStats } from "@/lib/adminStats";
 
 type DbUser = {
   id: string;
@@ -40,48 +41,42 @@ export default function AdminPage() {
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
 
-  const [dbStats, setDbStats] = useState<{
-    admins: number; teachers: number; students: number; classes: number;
-    questions: number; exams: number; attempts: number; avgScore: number;
-  } | null>(null);
+  const [dbStats, setDbStats] = useState<SchoolStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
 
   const loadStats = useCallback(async () => {
-    const opts = { count: "exact" as const, head: true };
-    const [aRes, tRes, sRes, cRes, qRes, eRes, atRes, scRes] = await Promise.all([
-      supabase.from("profiles").select("id", opts).eq("role", "admin"),
-      supabase.from("profiles").select("id", opts).eq("role", "teacher"),
-      supabase.from("profiles").select("id", opts).eq("role", "student"),
-      supabase.from("classes").select("id", opts),
-      supabase.from("questions").select("id", opts),
-      supabase.from("exams").select("id", opts),
-      supabase.from("attempts").select("id", opts),
-      supabase.from("attempts").select("score, max_score").eq("status", "submitted"),
-    ]);
-    const scored = (scRes.data ?? []).filter((r: any) => r.max_score > 0);
-    const avg = scored.length === 0 ? 0
-      : Math.round(scored.reduce((acc: number, r: any) => acc + (r.score / r.max_score) * 100, 0) / scored.length);
-    setDbStats({
-      admins: aRes.count ?? 0,
-      teachers: tRes.count ?? 0,
-      students: sRes.count ?? 0,
-      classes: cRes.count ?? 0,
-      questions: qRes.count ?? 0,
-      exams: eRes.count ?? 0,
-      attempts: atRes.count ?? 0,
-      avgScore: avg,
-    });
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const nextStats = await loadSchoolStats();
+      setDbStats(nextStats);
+      setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[AdminPage] load stats failed:", error);
+      setStatsError(`โหลดสถิติไม่สำเร็จ: ${message}`);
+    } finally {
+      setStatsLoading(false);
+    }
   }, []);
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_users", { _status: null });
-    if (error) toast.error(`โหลดผู้ใช้ไม่สำเร็จ: ${error.message}`);
-    setDbUsers((data ?? []) as DbUser[]);
-    setUsersLoading(false);
+    try {
+      const { data } = await retrySupabase<DbUser[]>(() => supabase.rpc("admin_list_users", { _status: null }), "admin_page_users");
+      setDbUsers((data ?? []) as DbUser[]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[AdminPage] load users failed:", error);
+      toast.error(`โหลดผู้ใช้ไม่สำเร็จ: ${message}`);
+    } finally {
+      setUsersLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadStats(); loadUsers(); }, [loadStats, loadUsers]);
