@@ -277,6 +277,27 @@ export default function AdminPage() {
           </ul>
         </Card>
       </div>
+
+      <Card className="p-5 mt-6">
+        <h3 className="font-semibold mb-3">ไทม์ไลน์การใช้งานระบบ (Audit Log)</h3>
+        <ul className="space-y-3">
+          {audit.slice(0, 10).map((a) => {
+            const tone: Record<string, string> = {
+              success: "bg-success", warning: "bg-warning", destructive: "bg-destructive", default: "bg-primary",
+            };
+            return (
+              <li key={a.id} className="flex gap-3">
+                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${tone[a.tone ?? "default"]}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm"><span className="font-medium">{a.actorName}</span> — {a.action}</div>
+                  {a.target && <div className="text-xs text-muted-foreground truncate">{a.target}</div>}
+                  <div className="text-[11px] text-muted-foreground">{new Date(a.at).toLocaleString("th-TH")}</div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
     </AppLayout>
   );
 }
