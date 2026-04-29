@@ -276,8 +276,6 @@ export default function Auth() {
                       <Input id="confirm-password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••" />
                     </div>
                   )}
-                  <div className="hidden">{/* spacer */}</div>
-                  </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     {staffMode === "login" ? "เข้าสู่ระบบ" : "สมัครและรออนุมัติ"}
