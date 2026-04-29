@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore, roleLabel } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2,
+  BookOpen, ClipboardList, Users, TrendingUp, ShieldCheck, Plus, Trash2, CheckCircle2, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Role, QuestionStatus } from "@/lib/types";
@@ -25,6 +26,41 @@ export default function AdminPage() {
   const [newTopic, setNewTopic] = useState({ title: "", grade: "ม.4" });
 
   const reviewQueue = questions.filter((q) => q.status === "review" || q.status === "draft");
+
+  const [dbStats, setDbStats] = useState<{
+    teachers: number; students: number; classes: number;
+    questions: number; exams: number; attempts: number; avgScore: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const opts = { count: "exact" as const, head: true };
+      const [tRes, sRes, cRes, qRes, eRes, aRes, scRes] = await Promise.all([
+        supabase.from("profiles").select("id", opts).eq("role", "teacher"),
+        supabase.from("profiles").select("id", opts).eq("role", "student"),
+        supabase.from("classes").select("id", opts),
+        supabase.from("questions").select("id", opts),
+        supabase.from("exams").select("id", opts),
+        supabase.from("attempts").select("id", opts),
+        supabase.from("attempts").select("score, max_score").eq("status", "submitted"),
+      ]);
+      if (cancelled) return;
+      const scored = (scRes.data ?? []).filter((r: any) => r.max_score > 0);
+      const avg = scored.length === 0 ? 0
+        : Math.round(scored.reduce((acc: number, r: any) => acc + (r.score / r.max_score) * 100, 0) / scored.length);
+      setDbStats({
+        teachers: tRes.count ?? 0,
+        students: sRes.count ?? 0,
+        classes: cRes.count ?? 0,
+        questions: qRes.count ?? 0,
+        exams: eRes.count ?? 0,
+        attempts: aRes.count ?? 0,
+        avgScore: avg,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = [
     { icon: Users, label: "ผู้ใช้ทั้งหมด", value: users.length },
@@ -72,6 +108,33 @@ export default function AdminPage() {
 
   return (
     <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ" breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ศูนย์ผู้ดูแล" }]}>
+      <Card className="p-5 mb-4 border-primary/30 bg-primary-soft/30">
+        <div className="flex items-center gap-2 mb-3">
+          <Database className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน (จากฐานข้อมูลจริง)</h3>
+        </div>
+        {dbStats ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {[
+              { label: "ครู", value: dbStats.teachers },
+              { label: "นักเรียน", value: dbStats.students },
+              { label: "ห้องเรียน", value: dbStats.classes },
+              { label: "ข้อในคลัง", value: dbStats.questions },
+              { label: "ชุดข้อสอบ", value: dbStats.exams },
+              { label: "การส่งทั้งหมด", value: dbStats.attempts },
+              { label: "คะแนนเฉลี่ย %", value: dbStats.avgScore },
+            ].map((s) => (
+              <div key={s.label} className="bg-card rounded-md p-3 border border-border">
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                <div className="text-xl font-semibold tabular-nums">{s.value}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
+        )}
+      </Card>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (
           <Card key={s.label} className="p-5 flex items-start gap-3">
@@ -79,7 +142,7 @@ export default function AdminPage() {
               <s.icon className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">{s.label}</div>
+              <div className="text-xs text-muted-foreground">{s.label} (เดโม)</div>
               <div className="text-2xl font-semibold mt-0.5 tabular-nums">{s.value}</div>
             </div>
           </Card>
