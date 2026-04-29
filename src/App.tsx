@@ -29,6 +29,7 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import ResultsPage from "./pages/ResultsPage";
 import AdminPage from "./pages/AdminPage";
 import ImportQuestions from "./pages/ImportQuestions";
+import RevealControl from "./pages/RevealControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/students" element={<Protected><UsersPage /></Protected>} />
             <Route path="/assignments" element={<Protected><AssignmentsPage /></Protected>} />
             <Route path="/results" element={<Protected><ResultsPage /></Protected>} />
+            <Route path="/reveal" element={<Protected><RevealControl /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
 
             <Route path="/users" element={<Protected><UsersPage /></Protected>} />

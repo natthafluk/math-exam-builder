@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FilePlus2, ClipboardList, Users,
-  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload,
+  GraduationCap, Settings, BarChart3, Sigma, ShieldCheck, Upload, Eye,
 } from "lucide-react";
 import { useStore, roleLabel } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ const navByRole = {
     { to: "/questions", icon: BookOpen, label: "คลังข้อสอบ" },
     { to: "/exams", icon: ClipboardList, label: "ข้อสอบทั้งหมด" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนนรวม" },
+    { to: "/reveal", icon: Eye, label: "เปิดเผยผลสอบ" },
     { to: "/analytics", icon: BarChart3, label: "สถิติระบบ" },
     { to: "/settings", icon: Settings, label: "ตั้งค่า" },
   ],
@@ -28,6 +29,7 @@ const navByRole = {
     { to: "/assignments", icon: ClipboardList, label: "งานที่มอบหมาย" },
     { to: "/classes", icon: GraduationCap, label: "ห้องเรียน" },
     { to: "/results", icon: BarChart3, label: "ผลคะแนน" },
+    { to: "/reveal", icon: Eye, label: "เปิดเผยผลสอบ" },
   ],
   student: [
     { to: "/", icon: LayoutDashboard, label: "หน้าหลัก" },

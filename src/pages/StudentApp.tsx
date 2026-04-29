@@ -48,12 +48,14 @@ interface AssignmentRow {
   due_date: string | null;
   status: string;
   show_explanations: boolean;
+  revealed: boolean;
+  reveal_mode: "manual" | "after_due";
 }
 
 export function StudentExams() {
   const { session } = useStudentSession();
   const [items, setItems] = useState<AssignmentRow[] | null>(null);
-  const [results, setResults] = useState<{ attempt_id: string; exam_title: string; score: number; max_score: number; submitted_at: string | null }[]>([]);
+  const [results, setResults] = useState<{ attempt_id: string; exam_title: string; score: number | null; max_score: number; submitted_at: string | null; revealed: boolean }[]>([]);
 
   useEffect(() => {
     if (!session) return;
@@ -107,16 +109,25 @@ export function StudentExams() {
           ) : (
             <div className="space-y-3 mt-4">
               {results.map((r) => {
-                const pct = r.max_score > 0 ? Math.round((r.score / r.max_score) * 100) : 0;
+                const pct = r.revealed && r.score != null && r.max_score > 0 ? Math.round((r.score / r.max_score) * 100) : 0;
                 return (
                   <Card key={r.attempt_id} className="p-5 flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{r.exam_title}</div>
                       <div className="text-xs text-muted-foreground">ส่งเมื่อ {r.submitted_at ? new Date(r.submitted_at).toLocaleString("th-TH") : "—"}</div>
+                      {!r.revealed && (
+                        <div className="text-xs text-warning mt-1">⏳ รอครูเปิดเผยคะแนน</div>
+                      )}
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold tabular-nums">{r.score}/{r.max_score}</div>
-                      <div className={`text-sm font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+                      {r.revealed && r.score != null ? (
+                        <>
+                          <div className="text-2xl font-bold tabular-nums">{r.score}/{r.max_score}</div>
+                          <div className={`text-sm font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">ยังไม่เปิดเผย</div>
+                      )}
                     </div>
                   </Card>
                 );
@@ -165,7 +176,7 @@ export function StudentTakeExam() {
   const [data, setData] = useState<ExamPayload | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ score: number; max_score: number } | null>(null);
+  const [result, setResult] = useState<{ score: number | null; max_score: number; revealed: boolean } | null>(null);
 
   useEffect(() => {
     if (!session || !id) return;
@@ -188,7 +199,7 @@ export function StudentTakeExam() {
     setSubmitting(false);
     if (error) { toast.error("ส่งคำตอบไม่สำเร็จ: " + error.message); return; }
     const r = res as any;
-    setResult({ score: Number(r.score), max_score: Number(r.max_score) });
+    setResult({ score: r.score == null ? null : Number(r.score), max_score: Number(r.max_score), revealed: !!r.revealed });
     toast.success("ส่งคำตอบเรียบร้อย");
   };
 
@@ -197,13 +208,23 @@ export function StudentTakeExam() {
   }
 
   if (result) {
-    const pct = result.max_score > 0 ? Math.round((result.score / result.max_score) * 100) : 0;
+    const pct = result.revealed && result.score != null && result.max_score > 0
+      ? Math.round((result.score / result.max_score) * 100) : 0;
     return (
-      <StudentShell title="ผลคะแนน">
+      <StudentShell title="ส่งคำตอบเรียบร้อย">
         <Card className="p-8 text-center space-y-4">
           <GraduationCap className="w-12 h-12 mx-auto text-accent" />
-          <div className="text-4xl font-bold tabular-nums">{result.score}/{result.max_score}</div>
-          <div className={`text-lg font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+          {result.revealed && result.score != null ? (
+            <>
+              <div className="text-4xl font-bold tabular-nums">{result.score}/{result.max_score}</div>
+              <div className={`text-lg font-medium ${pct >= 70 ? "text-success" : pct >= 50 ? "text-warning" : "text-destructive"}`}>{pct}%</div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-2xl font-semibold">บันทึกคำตอบแล้ว</div>
+              <div className="text-sm text-muted-foreground">คะแนนและเฉลยจะแสดงเมื่อครูเปิดเผยผลสอบ</div>
+            </div>
+          )}
           <Button onClick={() => nav("/student/exams")} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> กลับไปหน้าข้อสอบ</Button>
         </Card>
       </StudentShell>
