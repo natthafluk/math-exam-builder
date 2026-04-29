@@ -158,7 +158,7 @@ export async function loadPrimarySchoolStats(): Promise<PrimaryStats> {
   if (import.meta.env.DEV) {
     console.log("[AdminStats:primary]", {
       usersRows: results[0].status === "fulfilled" ? (results[0].value.data ?? []).length : "failed",
-      classesRows: results[1].status === "fulfilled" ? (results[1].value.data ?? []).length : "failed",
+      classesRows: results[1].status === "fulfilled" ? results[1].value?.classes : "failed",
       studentsTotal: students,
       errors,
     });
