@@ -8,7 +8,7 @@ import { Plus, Printer, Users, Clock, BarChart3 } from "lucide-react";
 export default function ExamList() {
   const navigate = useNavigate();
   const { exams, classes, attempts, currentUser } = useStore();
-  const visible = currentUser.role === "admin" ? exams : exams.filter((e) => e.teacherId === currentUser.id);
+  const visible = exams.filter((e) => e.teacherId === currentUser.id);
 
   return (
     <AppLayout

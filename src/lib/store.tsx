@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, ReactNode, useCallback, useEffect } from "react";
 import type { Attempt, ClassRoom, Exam, Question, Role, Topic, User, AuditEntry, SchoolSettings } from "./types";
 import {
-  seedAttempts, seedClasses, seedExams, seedQuestions, seedTopics, seedUsers, seedAudit, seedSchool,
+  seedAttempts, seedClasses, seedExams, seedQuestions, seedTopics, seedAudit, seedSchool,
 } from "./seed";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
@@ -60,9 +60,9 @@ function mapDbQuestion(row: any): Question {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
 
-  // Seed-based fallbacks for parts not yet wired to Supabase
-  const [users, setUsers] = useState<User[]>(seedUsers);
-  const [currentUserId, setCurrentUserId] = useState("u-t1");
+  // Real users come from Supabase profiles via useAuth(); seed users were demo data only.
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [classes] = useState<ClassRoom[]>(seedClasses);
   const [topics, setTopics] = useState<Topic[]>(seedTopics);
   const [questions, setQuestions] = useState<Question[]>(seedQuestions);
@@ -109,7 +109,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         avatarColor: profile.avatar_color ?? "bg-primary",
       };
     }
-    return users.find((u) => u.id === currentUserId) ?? users[0];
+    return users.find((u) => u.id === currentUserId) ?? users[0] ?? {
+      id: "guest", name: "ผู้เยี่ยมชม", email: "", role: "student" as Role, avatarColor: "bg-muted",
+    };
   }, [profile, users, currentUserId]);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "actorId" | "actorName">) => {

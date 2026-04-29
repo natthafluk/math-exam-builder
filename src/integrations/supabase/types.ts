@@ -621,6 +621,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
       admin_list_users: {
         Args: { _status?: string }
         Returns: {

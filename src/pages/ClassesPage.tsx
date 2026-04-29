@@ -24,23 +24,37 @@ export default function ClassesPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("classes").select("id,name,grade_level,subject_code,teacher_id").order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setClasses((data ?? []) as ClassRow[]);
-    const { data: cs } = await supabase.from("class_students").select("class_id");
-    const map: Record<string, number> = {};
-    (cs ?? []).forEach((r: any) => { map[r.class_id] = (map[r.class_id] ?? 0) + 1; });
-    setCounts(map);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("classes").select("id,name,grade_level,subject_code,teacher_id").order("created_at", { ascending: false });
+      if (error) {
+        console.warn("load classes failed:", error.message);
+        setClasses([]);
+      } else {
+        setClasses((data ?? []) as ClassRow[]);
+      }
+      const { data: cs, error: csErr } = await supabase.from("class_students").select("class_id");
+      if (csErr) {
+        console.warn("load class_students failed:", csErr.message);
+        setCounts({});
+      } else {
+        const map: Record<string, number> = {};
+        (cs ?? []).forEach((r: any) => { map[r.class_id] = (map[r.class_id] ?? 0) + 1; });
+        setCounts(map);
+      }
+    } catch (e) {
+      console.warn("classes load exception:", e);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); }, []);
 
-  const isAdminOrTeacher = profile?.role === "admin" || profile?.role === "teacher";
+  const canCreateClass = profile?.role === "teacher";
 
   return (
     <AppLayout title="ห้องเรียน">
       <div className="flex justify-end mb-4">
-        {isAdminOrTeacher && (
+        {canCreateClass && (
           <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> สร้างห้องเรียนใหม่</Button>
         )}
       </div>

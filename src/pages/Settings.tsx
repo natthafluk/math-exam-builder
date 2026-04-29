@@ -4,8 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Save } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function Settings() {
   return (
@@ -40,7 +41,9 @@ export default function Settings() {
           </Button>
         </Card>
         <Card className="p-5 lg:col-span-2 flex justify-end">
-          <Button>บันทึกการตั้งค่า</Button>
+          <Button onClick={() => toast.success("บันทึกการตั้งค่าเรียบร้อย")} className="gap-2">
+            <Save className="w-4 h-4" /> บันทึกการตั้งค่า
+          </Button>
         </Card>
       </div>
     </AppLayout>
