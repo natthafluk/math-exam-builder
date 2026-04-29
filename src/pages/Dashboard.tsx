@@ -9,8 +9,8 @@ import {
   GraduationCap, Clock, ShieldCheck, UserCog,
 } from "lucide-react";
 import { MathRender } from "@/components/MathRender";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { loadSchoolStats, type SchoolStats } from "@/lib/adminStats";
 
 export default function Dashboard() {
   const { currentUser } = useStore();
@@ -42,12 +42,9 @@ function Stat({ icon: Icon, label, value, hint, tone = "primary" }: any) {
 
 function AdminDash() {
   const { currentUser } = useStore();
-  const [stats, setStats] = useState<{
-    admins: number; teachers: number; students: number;
-    questions: number; exams: number; attempts: number; classes: number;
-  } | null>(null);
+  const [stats, setStats] = useState<SchoolStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [recentExams, setRecentExams] = useState<Array<{ id: string; title: string; status: string; time_limit_minutes: number }>>([]);
 
   const reloadKey = currentUser?.id ?? "";
 
@@ -55,65 +52,28 @@ function AdminDash() {
     if (!reloadKey) return;
     let cancelled = false;
     (async () => {
+      setLoadingStats(true);
+      setLoadError(null);
       try {
-        // Use the SAME RPCs as /users and /classes for consistency
-        const [usersRes, classesRes] = await Promise.all([
-          supabase.rpc("admin_list_users", { _status: null }),
-          supabase.rpc("teacher_list_classes_with_students"),
-        ]);
+        const nextStats = await loadSchoolStats();
         if (cancelled) return;
-
-        if (usersRes.error) {
-          console.error("[AdminDash] admin_list_users error:", usersRes.error);
-          throw new Error("โหลดผู้ใช้ไม่สำเร็จ: " + usersRes.error.message);
-        }
-        if (classesRes.error) {
-          console.error("[AdminDash] teacher_list_classes_with_students error:", classesRes.error);
-          throw new Error("โหลดห้องเรียนไม่สำเร็จ: " + classesRes.error.message);
-        }
-
-        const usersRows = (usersRes.data ?? []) as Array<{ role: string }>;
-        const classesRows = (classesRes.data ?? []) as Array<{ student_count: number | string }>;
-        const admins = usersRows.filter((u) => u.role === "admin").length;
-        const teachers = usersRows.filter((u) => u.role === "teacher").length;
-        const studentsTotal = classesRows.reduce((s, c) => s + (Number(c.student_count) || 0), 0);
-
-        if (import.meta.env.DEV) {
-          console.log("[AdminDash] usersRows:", usersRows.length, "classesRows:", classesRows.length, "studentsTotal:", studentsTotal);
-        }
-
-        // Secondary metrics — failure here should not blank the dashboard
-        const [qRes, eRes, atRes, exList] = await Promise.all([
-          supabase.from("questions").select("id", { count: "exact", head: true }),
-          supabase.from("exams").select("id", { count: "exact", head: true }),
-          supabase.from("attempts").select("id", { count: "exact", head: true }),
-          supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
-        ]);
-        if (cancelled) return;
-
-        setStats({
-          admins,
-          teachers,
-          students: studentsTotal,
-          questions: qRes.count ?? 0,
-          exams: eRes.count ?? 0,
-          attempts: atRes.count ?? 0,
-          classes: classesRows.length,
-        });
-        setRecentExams((exList.data ?? []) as any);
-        setLoadError(null);
+        setStats(nextStats);
+        if (nextStats.errors.length > 0) setLoadError(nextStats.errors.join(" / "));
       } catch (err: any) {
         if (cancelled) return;
         const msg = err?.message ?? String(err);
         console.error("[AdminDash] load failed:", err);
         toast.error(msg);
         setLoadError(msg);
+      } finally {
+        if (!cancelled) setLoadingStats(false);
       }
     })();
     return () => { cancelled = true; };
   }, [reloadKey]);
 
-  const totalUsers = stats ? stats.admins + stats.teachers + stats.students : 0;
+  const displayValue = (value: number | null | undefined) => loadingStats && stats === null ? "..." : value ?? "โหลดไม่ได้";
+  const recentExams = stats?.recentExams ?? [];
 
   return (
     <AppLayout title="Dashboard">
