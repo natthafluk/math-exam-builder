@@ -78,8 +78,12 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (!password) {
+      toast.error("กรุณากรอกรหัสผ่าน");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("รหัสผ่านและการยืนยันไม่ตรงกัน");
       return;
     }
     setBusy(true);
