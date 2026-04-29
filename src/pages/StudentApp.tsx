@@ -199,7 +199,7 @@ export function StudentTakeExam() {
     setSubmitting(false);
     if (error) { toast.error("ส่งคำตอบไม่สำเร็จ: " + error.message); return; }
     const r = res as any;
-    setResult({ score: Number(r.score), max_score: Number(r.max_score) });
+    setResult({ score: r.score == null ? null : Number(r.score), max_score: Number(r.max_score), revealed: !!r.revealed });
     toast.success("ส่งคำตอบเรียบร้อย");
   };
 
