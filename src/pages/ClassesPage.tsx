@@ -93,7 +93,7 @@ export default function ClassesPage() {
   );
 }
 
-function ClassCard({ c, count, onChange }: { c: ClassRow; count: number; onChange: () => void }) {
+function ClassCard({ c, onChange }: { c: ClassRow; onChange: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <Card className="p-5">
@@ -104,19 +104,19 @@ function ClassCard({ c, count, onChange }: { c: ClassRow; count: number; onChang
             {c.grade_level} {c.subject_code ? `• รหัสวิชา ${c.subject_code}` : ""}
           </p>
         </div>
-        <span className="chip bg-primary-soft text-primary"><Users className="w-3 h-3" /> {count} คน</span>
+        <span className="chip bg-primary-soft text-primary"><Users className="w-3 h-3" /> {c.student_count} คน</span>
       </div>
       <div className="flex gap-2 mt-4">
         <Button variant="outline" size="sm" className="flex-1" onClick={() => setOpen(true)}>
           จัดการนักเรียน
         </Button>
       </div>
-      <RosterDialog classId={c.id} className={c.name} open={open} onOpenChange={setOpen} onChange={onChange} />
+      <RosterDialog classId={c.id} className={c.name} students={c.students} open={open} onOpenChange={setOpen} onChange={onChange} />
     </Card>
   );
 }
 
-function CreateClassDialog({ open, onOpenChange, onCreated, teacherId }: { open: boolean; onOpenChange: (b: boolean) => void; onCreated: () => void; teacherId?: string }) {
+function CreateClassDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (b: boolean) => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [grade, setGrade] = useState("");
   const [code, setCode] = useState("");
@@ -124,13 +124,13 @@ function CreateClassDialog({ open, onOpenChange, onCreated, teacherId }: { open:
   const submit = async () => {
     if (!name.trim() || !grade.trim()) { toast.error("กรอกชื่อห้องและระดับชั้น"); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("teacher_create_class", {
+    const { error } = await (supabase as any).rpc("teacher_create_class", {
       _name: name.trim(),
       _grade_level: grade.trim(),
       _subject_code: code.trim(),
     });
     setBusy(false);
-    if (error) { toast.error("สร้างห้องเรียนไม่สำเร็จ: " + error.message); return; }
+    if (error) { toast.error("สร้างห้องเรียนไม่สำเร็จ: " + dbErrorMessage(error.message)); return; }
     toast.success("สร้างห้องเรียนแล้ว");
     setName(""); setGrade(""); setCode("");
     onOpenChange(false); onCreated();
