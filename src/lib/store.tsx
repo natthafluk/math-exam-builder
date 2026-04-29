@@ -109,7 +109,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         avatarColor: profile.avatar_color ?? "bg-primary",
       };
     }
-    return users.find((u) => u.id === currentUserId) ?? users[0];
+    return users.find((u) => u.id === currentUserId) ?? users[0] ?? {
+      id: "guest", name: "ผู้เยี่ยมชม", email: "", role: "student" as Role, avatarColor: "bg-muted",
+    };
   }, [profile, users, currentUserId]);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "actorId" | "actorName">) => {
