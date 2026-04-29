@@ -49,7 +49,7 @@ export default function ClassesPage() {
   };
   useEffect(() => { load(); }, []);
 
-  const isAdminOrTeacher = profile?.role === "admin" || profile?.role === "teacher";
+  const canCreateClass = profile?.role === "teacher";
 
   return (
     <AppLayout title="ห้องเรียน">
