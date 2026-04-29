@@ -130,6 +130,44 @@ const countResult = async (label: string, query: () => SupabaseCall) => {
   return result.count ?? 0;
 };
 
+const fromSummary = (raw: any): SchoolStats => {
+  const data = Array.isArray(raw) ? raw[0] : raw;
+  const stats: SchoolStats = {
+    admins: Number(data?.admins ?? 0),
+    teachers: Number(data?.teachers ?? 0),
+    students: Number(data?.students ?? 0),
+    classes: Number(data?.classes ?? 0),
+    totalUsers: Number(data?.totalUsers ?? data?.total_users ?? 0),
+    questions: Number(data?.questions ?? 0),
+    exams: Number(data?.exams ?? 0),
+    attempts: Number(data?.attempts ?? 0),
+    avgScore: Number(data?.avgScore ?? data?.avg_score ?? 0),
+    recentExams: Array.isArray(data?.recentExams) ? data.recentExams : Array.isArray(data?.recent_exams) ? data.recent_exams : [],
+    errors: [],
+  };
+
+  usersStatsCache = { admins: stats.admins, teachers: stats.teachers };
+  classStatsCache = { classes: stats.classes, students: stats.students };
+  summaryCache = stats;
+  return stats;
+};
+
+export async function loadDashboardSummary(force = false): Promise<SchoolStats> {
+  if (!force && summaryCache) return summaryCache;
+  if (!force && summaryPromise) return summaryPromise;
+
+  summaryPromise = withPromiseTimeout(
+    retrySupabase<any>(() => (supabase as any).rpc("admin_dashboard_summary"), "admin_dashboard_summary", { maxTries: 1, timeoutMs: STATS_RPC_TIMEOUT_MS })
+      .then((result) => fromSummary(result.data)),
+    STATS_RPC_TIMEOUT_MS + 400,
+    "admin_dashboard_summary"
+  ).finally(() => {
+    summaryPromise = null;
+  });
+
+  return summaryPromise;
+}
+
 const emptyPrimary = (errors: string[] = []): PrimaryStats => ({
   admins: usersStatsCache?.admins ?? null,
   teachers: usersStatsCache?.teachers ?? null,
