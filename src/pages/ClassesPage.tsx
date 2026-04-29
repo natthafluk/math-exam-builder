@@ -32,6 +32,16 @@ const dbErrorMessage = (message?: string) => {
   return message;
 };
 
+let classesMemoryCache: ClassRow[] | null = null;
+const isTransientDbError = (message: string) => /schema cache|Database client|Retrying/i.test(message);
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const normalizeClasses = (rows: ClassRow[]) => rows.map((c) => ({
+  ...c,
+  students: c.students ?? [],
+  student_count: c.student_count ?? 0,
+}));
+
 export default function ClassesPage() {
   const { profile } = useAuth();
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -42,20 +52,33 @@ export default function ClassesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    let lastMessage = "โหลดข้อมูลห้องเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
     try {
-      const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
-      if (error) {
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
+        if (!error) {
+          const next = normalizeClasses((data ?? []) as ClassRow[]);
+          classesMemoryCache = next;
+          setClasses(next);
+          return;
+        }
+
+        lastMessage = error.message;
         console.warn("load classes via RPC failed:", error.message);
-        setClasses([]);
-        setLoadError(dbErrorMessage(error.message));
-      } else {
-        setClasses(((data ?? []) as ClassRow[]).map((c) => ({ ...c, students: c.students ?? [], student_count: c.student_count ?? 0 })));
+        if (!isTransientDbError(error.message) || attempt === 5) break;
+        await wait(350 * attempt);
       }
     } catch (e) {
       console.warn("classes load exception:", e);
-      setClasses([]);
-      setLoadError("โหลดข้อมูลห้องเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      lastMessage = e instanceof Error ? e.message : String(e);
     } finally {
+      if (classesMemoryCache && isTransientDbError(lastMessage)) {
+        setClasses(classesMemoryCache);
+        setLoadError("ฐานข้อมูลตอบกลับชั่วคราว ระบบแสดงข้อมูลห้องเรียนล่าสุดให้ก่อน");
+      } else {
+        setClasses([]);
+        setLoadError(dbErrorMessage(lastMessage));
+      }
       setLoading(false);
     }
   }, []);
@@ -72,7 +95,7 @@ export default function ClassesPage() {
       </div>
       {loading ? (
         <Card className="p-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></Card>
-      ) : loadError ? (
+      ) : loadError && classes.length === 0 ? (
         <Card className="p-8 text-center space-y-3">
           <p className="font-medium">โหลดห้องเรียนไม่สำเร็จ</p>
           <p className="text-sm text-muted-foreground">{loadError}</p>
@@ -81,10 +104,13 @@ export default function ClassesPage() {
       ) : classes.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground">ยังไม่มีห้องเรียน</Card>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          {loadError ? <Card className="p-3 text-sm text-muted-foreground">{loadError} <Button variant="link" className="h-auto p-0 ml-2" onClick={load}>โหลดใหม่</Button></Card> : null}
+          <div className="grid md:grid-cols-2 gap-4">
           {classes.map((c) => (
             <ClassCard key={c.id} c={c} onChange={load} />
           ))}
+          </div>
         </div>
       )}
 
