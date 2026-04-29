@@ -209,12 +209,16 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-md">
                   <button type="button" onClick={() => setStaffMode("login")}
                     className={cn("py-1.5 text-xs font-medium rounded transition-colors",
-                      staffMode === "login" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>
+                      staffMode === "login"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground")}>
                     เข้าสู่ระบบ
                   </button>
                   <button type="button" onClick={() => setStaffMode("signup")}
                     className={cn("py-1.5 text-xs font-medium rounded transition-colors",
-                      staffMode === "signup" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>
+                      staffMode === "signup"
+                        ? "bg-accent text-accent-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground")}>
                     สมัครสมาชิก
                   </button>
                 </div>
