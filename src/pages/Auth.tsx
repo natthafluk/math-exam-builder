@@ -35,6 +35,7 @@ interface EnrollmentRow {
 }
 
 type Tab = "staff" | "student";
+type StaffMode = "login" | "signup";
 
 export default function Auth() {
   const { user, signIn, loading } = useAuth();
@@ -42,11 +43,15 @@ export default function Auth() {
   const nav = useNavigate();
 
   const [tab, setTab] = useState<Tab>("staff");
+  const [staffMode, setStaffMode] = useState<StaffMode>("login");
 
   // Staff state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [requestedRole, setRequestedRole] = useState<"teacher" | "admin">("teacher");
   const [busy, setBusy] = useState(false);
+  const [signupDone, setSignupDone] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedResult[]>([]);
 
@@ -68,6 +73,32 @@ export default function Auth() {
       toast.success("ยินดีต้อนรับ");
       nav("/", { replace: true });
     }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: { full_name: fullName, requested_role: requestedRole },
+      },
+    });
+    if (error) {
+      setBusy(false);
+      toast.error("สมัครไม่สำเร็จ: " + error.message);
+      return;
+    }
+    await supabase.auth.signOut();
+    setBusy(false);
+    setSignupDone(true);
+    toast.success("สมัครสำเร็จ รอผู้ดูแลอนุมัติ");
   };
 
   const quickLogin = async (e: string, p: string) => {
