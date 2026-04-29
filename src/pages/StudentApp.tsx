@@ -55,7 +55,7 @@ interface AssignmentRow {
 export function StudentExams() {
   const { session } = useStudentSession();
   const [items, setItems] = useState<AssignmentRow[] | null>(null);
-  const [results, setResults] = useState<{ attempt_id: string; exam_title: string; score: number; max_score: number; submitted_at: string | null }[]>([]);
+  const [results, setResults] = useState<{ attempt_id: string; exam_title: string; score: number | null; max_score: number; submitted_at: string | null; revealed: boolean }[]>([]);
 
   useEffect(() => {
     if (!session) return;
