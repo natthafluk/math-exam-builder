@@ -381,22 +381,28 @@ export default function ExamBuilder() {
         {step === 3 && (
           <Card className="p-5 max-w-2xl">
             <h3 className="font-semibold mb-3">เลือกห้องเรียนที่จะมอบหมาย</h3>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {classes.map((c) => {
-                const checked = draft.classIds.includes(c.id);
-                return (
-                  <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${checked ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}>
-                    <Checkbox checked={checked} onCheckedChange={(v) => set("classIds", v ? [...draft.classIds, c.id] : draft.classIds.filter((x) => x !== c.id))} />
-                    <div>
-                      <div className="text-sm font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.studentIds.length} คน</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
+            {classesLoading ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">กำลังโหลดห้องเรียน...</div>
+            ) : classes.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">ยังไม่มีห้องเรียนของคุณ — กรุณาสร้างห้องเรียนก่อน</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {classes.map((c) => {
+                  const checked = draft.classIds.includes(c.id);
+                  return (
+                    <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${checked ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}>
+                      <Checkbox checked={checked} onCheckedChange={(v) => set("classIds", v ? [...draft.classIds, c.id] : draft.classIds.filter((x) => x !== c.id))} />
+                      <div>
+                        <div className="text-sm font-medium">{c.name} <span className="text-xs text-muted-foreground font-normal">({c.grade_level})</span></div>
+                        <div className="text-xs text-muted-foreground">{c.student_count} คน</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-5 p-3 rounded-md bg-muted/50 text-sm">
-              จะส่งให้ <strong>{classes.filter(c => draft.classIds.includes(c.id)).reduce((s, c) => s + c.studentIds.length, 0)}</strong> คน
+              จะส่งให้ <strong>{classes.filter(c => draft.classIds.includes(c.id)).reduce((s, c) => s + (c.student_count ?? 0), 0)}</strong> คน
               ในห้อง {classes.filter(c => draft.classIds.includes(c.id)).map(c => c.name).join(", ") || "—"}
             </div>
           </Card>
