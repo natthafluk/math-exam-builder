@@ -129,7 +129,7 @@ export default function ExamBuilder() {
         dueDate: examRow.due_date ? String(examRow.due_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
         showExplanations: examRow.show_explanations,
         status: examRow.status,
-        settings: (examRow.settings as ExamSettings) ?? DEFAULT_SETTINGS,
+        settings: { ...DEFAULT_SETTINGS, ...((examRow.settings as unknown as Partial<ExamSettings>) ?? {}) },
         createdAt: examRow.created_at,
       };
       setExisting(loaded);
@@ -335,7 +335,7 @@ export default function ExamBuilder() {
                 ) : (
                   <ol className="space-y-2">
                     {draft.questions.map((q, i) => {
-                      const item = questions.find((x) => x.id === q.questionId)!;
+                      const item = dbQuestions.find((x) => x.id === q.questionId)!;
                       return (
                         <li key={q.questionId} className="flex flex-col sm:flex-row sm:items-start gap-2 p-3 rounded-md border border-border">
                           <span className="text-sm font-semibold text-muted-foreground sm:w-6">{i + 1}.</span>
@@ -386,13 +386,16 @@ export default function ExamBuilder() {
               <Card className="p-5">
                 <h3 className="font-semibold mb-3">เลือกจากคลัง</h3>
                 {(() => {
-                  const dbPublished = questions.filter(q => q.status === "published" && /^[0-9a-f]{8}-/i.test(q.id));
+                  const dbPublished = dbQuestions.filter(q => q.status === "published" && UUID_RE.test(q.id));
+                  if (questionsLoading) {
+                    return <div className="text-sm text-muted-foreground py-6 text-center">กำลังโหลดข้อสอบจากฐานข้อมูล...</div>;
+                  }
                   if (dbPublished.length === 0) {
                     return (
                       <div className="text-center py-6 space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          ยังไม่มีข้อสอบจริงในคลัง<br/>
-                          <span className="text-xs">(ข้อสอบตัวอย่างเป็นเพียงเดโม ส่งมอบหมายไม่ได้)</span>
+                          ยังไม่มีข้อสอบที่เผยแพร่ในฐานข้อมูล<br/>
+                          <span className="text-xs">สร้างข้อสอบแล้วเลือก “ส่งเข้าคลัง” ก่อน จึงจะเลือกเข้าชุดข้อสอบได้</span>
                         </p>
                         <Button size="sm" variant="outline" onClick={() => navigate("/questions/new")}>
                           + สร้างข้อสอบใหม่
