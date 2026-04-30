@@ -1,4 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Pool } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
 
 const corsHeaders = {
