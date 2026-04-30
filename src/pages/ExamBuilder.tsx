@@ -135,20 +135,84 @@ export default function ExamBuilder() {
     toast.success(`สุ่มเพิ่ม ${picked.length} ข้อแล้ว`);
   };
 
-  const saveDraft = () => {
+  const [busy, setBusy] = useState(false);
+
+  // Persist exam + exam_questions to backend. Returns the saved exam id (UUID).
+  const persistExam = async (status: "draft" | "assigned"): Promise<string | null> => {
+    if (!profile) { toast.error("ยังไม่ได้เข้าสู่ระบบ"); return null; }
+    // Only send UUID-shaped question ids (skip seed mock IDs)
+    const validQs = draft.questions.filter((q) => /^[0-9a-f]{8}-/i.test(q.questionId));
+    if (status === "assigned" && validQs.length === 0) {
+      toast.error("ต้องมีข้อสอบจริงในคลัง (UUID) อย่างน้อย 1 ข้อก่อนมอบหมาย");
+      return null;
+    }
+    const isExistingDb = existing && /^[0-9a-f]{8}-/i.test(existing.id);
+    const examId = isExistingDb ? existing!.id : crypto.randomUUID();
+    const examRow = {
+      id: examId,
+      title: draft.title.trim(),
+      description: draft.description ?? "",
+      teacher_id: profile.id,
+      time_limit_minutes: draft.timeLimitMinutes,
+      due_date: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
+      show_explanations: draft.showExplanations,
+      status,
+      settings: draft.settings ?? {},
+    };
+    const upsert = await supabase.from("exams").upsert(examRow);
+    if (upsert.error) { toast.error("บันทึกข้อสอบไม่สำเร็จ: " + upsert.error.message); return null; }
+
+    // Replace exam_questions: delete existing, insert fresh
+    await supabase.from("exam_questions").delete().eq("exam_id", examId);
+    if (validQs.length) {
+      const rows = validQs.map((q, i) => ({
+        exam_id: examId, question_id: q.questionId,
+        sort_order: q.order ?? i + 1, points: q.points ?? 1,
+      }));
+      const ins = await supabase.from("exam_questions").insert(rows);
+      if (ins.error) { toast.error("บันทึกรายการข้อสอบไม่สำเร็จ: " + ins.error.message); return null; }
+    }
+    return examId;
+  };
+
+  const saveDraft = async () => {
     if (!draft.title.trim()) { toast.error("กรุณาตั้งชื่อชุดข้อสอบ"); return; }
-    existing ? updateExam(draft) : addExam(draft);
+    setBusy(true);
+    const examId = await persistExam("draft");
+    setBusy(false);
+    if (!examId) return;
+    const next = { ...draft, id: examId, status: "draft" as const, teacherId: profile?.id ?? draft.teacherId };
+    existing ? updateExam(next) : addExam(next);
     toast.success("บันทึกชุดข้อสอบแล้ว");
     navigate("/exams");
   };
-  const assign = () => {
+
+  const assign = async () => {
     if (!draft.classIds.length) { toast.error("กรุณาเลือกห้องเรียนอย่างน้อย 1 ห้อง"); setStep(3); return; }
-    const next = { ...draft, status: "assigned" as const };
+    setBusy(true);
+    const examId = await persistExam("assigned");
+    if (!examId) { setBusy(false); return; }
+
+    // Create assignments per class (idempotent: skip duplicates)
+    const dueIso = draft.dueDate ? new Date(draft.dueDate).toISOString() : null;
+    const { data: existingAss } = await supabase.from("assignments").select("class_id").eq("exam_id", examId);
+    const existingClassIds = new Set((existingAss ?? []).map((r: any) => r.class_id));
+    const newRows = draft.classIds
+      .filter((cid) => !existingClassIds.has(cid))
+      .map((cid) => ({ exam_id: examId, class_id: cid, due_date: dueIso, status: "open" as const }));
+    if (newRows.length) {
+      const insAss = await supabase.from("assignments").insert(newRows);
+      if (insAss.error) { setBusy(false); toast.error("มอบหมายไม่สำเร็จ: " + insAss.error.message); return; }
+    }
+    setBusy(false);
+
+    const next = { ...draft, id: examId, status: "assigned" as const, teacherId: profile?.id ?? draft.teacherId };
     existing ? updateExam(next) : addExam(next);
     logAudit({ action: "มอบหมายชุดข้อสอบ", target: `${next.title} → ${classes.filter(c => next.classIds.includes(c.id)).map(c => c.name).join(", ")}`, tone: "success" });
     toast.success("มอบหมายข้อสอบให้นักเรียนแล้ว");
     navigate("/exams");
   };
+
 
   const canNext = () => {
     if (step === 0) return draft.title.trim().length > 0;
