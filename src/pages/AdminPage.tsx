@@ -114,39 +114,32 @@ export default function AdminPage() {
   return (
     <AppLayout title="ศูนย์ควบคุมผู้ดูแลระบบ" breadcrumbs={[{ label: "Dashboard", to: "/" }, { label: "ศูนย์ผู้ดูแล" }]}>
       <Card className="p-5 mb-4 border-primary/30 bg-primary-soft/30">
-        <div className="flex items-center gap-2 mb-3">
-          <Database className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน</h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm">สถิติทั้งโรงเรียน</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={loadStats} className="gap-1.5 h-7 text-xs">
+            <RefreshCw className="w-3 h-3" /> รีเฟรช
+          </Button>
         </div>
-        {statsError && (
-          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <span>{statsError}</span>
-            <Button variant="outline" size="sm" onClick={() => loadStats(true)} className="gap-1.5 self-start sm:self-auto">
-              <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
-            </Button>
-          </div>
-        )}
-        {statsLoading && !primaryStats ? (
-          <div className="text-xs text-muted-foreground">กำลังโหลดสถิติ...</div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            {[
-              { label: "ผู้ดูแล", value: primaryStats?.admins },
-              { label: "ครู", value: primaryStats?.teachers },
-              { label: "นักเรียน", value: primaryStats?.students },
-              { label: "ห้องเรียน", value: primaryStats?.classes },
-              { label: "ข้อสอบในคลัง", value: secondaryStats?.questions, secondary: true },
-              { label: "ชุดข้อสอบ", value: secondaryStats?.exams, secondary: true },
-              { label: "การส่งทั้งหมด", value: secondaryStats?.attempts, secondary: true },
-              { label: "คะแนนเฉลี่ย %", value: secondaryStats?.avgScore, secondary: true },
-            ].map((s) => (
-              <div key={s.label} className="bg-card rounded-md p-3 border border-border">
-                <div className="text-[11px] text-muted-foreground">{s.label}</div>
-                <div className="text-xl font-semibold tabular-nums">{s.value ?? (s.secondary ? "-" : "โหลดไม่ได้")}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          {[
+            { label: "ผู้ดูแล", value: primaryStats?.admins ?? 0 },
+            { label: "ครู", value: primaryStats?.teachers ?? 0 },
+            { label: "นักเรียน", value: primaryStats?.students ?? 0 },
+            { label: "ห้องเรียน", value: primaryStats?.classes ?? 0 },
+            { label: "ข้อสอบในคลัง", value: secondaryStats?.questions ?? 0 },
+            { label: "ชุดข้อสอบ", value: secondaryStats?.exams ?? 0 },
+            { label: "การส่งทั้งหมด", value: secondaryStats?.attempts ?? 0 },
+            { label: "คะแนนเฉลี่ย %", value: secondaryStats?.avgScore ?? 0 },
+          ].map((s) => (
+            <div key={s.label} className="bg-card rounded-md p-3 border border-border">
+              <div className="text-[11px] text-muted-foreground">{s.label}</div>
+              <div className="text-xl font-semibold tabular-nums">{s.value}</div>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <Card className="p-5 mb-6">
