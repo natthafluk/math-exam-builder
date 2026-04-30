@@ -156,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(nextProfile);
         writeCachedProfile(nextProfile);
         setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
+        console.info("[auth] profile loaded:", nextProfile, "→ resolved role:", nextProfile.role, "approval:", nextProfile.approval_status);
         return;
       } catch (e) {
         lastMessage = e instanceof Error ? e.message : String(e);
