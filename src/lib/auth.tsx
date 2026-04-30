@@ -42,6 +42,19 @@ const transientProfileError = (message: string) =>
   /schema cache|database client|retrying|recovery mode|connection error|failed to fetch|aborted|timeout|ใช้เวลานาน/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("profile query timeout")), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
+
 // Note: we intentionally do NOT build a fallback profile from JWT metadata.
 // Doing so previously caused admins/super-admins to appear as "teacher" when the DB was slow.
 
@@ -51,6 +64,25 @@ const profileQuery = async (uid: string) => {
     .select(PROFILE_COLUMNS)
     .eq("id", uid)
     .maybeSingle();
+};
+
+const profileFunctionQuery = async (accessToken?: string): Promise<Profile | null> => {
+  const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token;
+  if (!token) throw new Error("missing session token");
+
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-profile`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: "{}",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || `profile function failed (${response.status})`);
+  return (data?.profile ?? null) as Profile | null;
 };
 
 const readCachedProfile = (uid: string): Profile | null => {
@@ -91,25 +123,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileStatus, setProfileStatus] = useState<ProfileLoadStatus>({ state: "idle" });
   const profileRequestRef = useRef<Promise<void> | null>(null);
 
-  const loadProfile = useCallback(async (uid: string, authUser?: User) => {
+  const loadProfile = useCallback(async (uid: string, accessToken?: string) => {
     const cached = readCachedProfile(uid);
-    if (cached) setProfile(cached);
-    setProfileStatus({ state: "loading", message: cached ? "กำลังอัปเดตโปรไฟล์อีกครั้ง" : "กำลังโหลดโปรไฟล์" });
+    if (cached) {
+      setProfile(cached);
+      setProfileStatus({ state: "stale", message: "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว" });
+    } else {
+      setProfileStatus({ state: "loading", message: "กำลังโหลดโปรไฟล์" });
+    }
 
     let attempt = 0;
 
     let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
-    while (attempt < 10) {
+    while (attempt < (cached ? 3 : 6)) {
       attempt += 1;
       try {
-        const { data, error } = await profileQuery(uid);
-        if (error) throw new Error(error.message);
-        if (!data) {
+        let nextProfile: Profile | null = null;
+        try {
+          const { data, error } = await withTimeout(profileQuery(uid), 4_000);
+          if (error) throw new Error(error.message);
+          nextProfile = data as Profile | null;
+        } catch (restError) {
+          lastMessage = restError instanceof Error ? restError.message : String(restError);
+          if (!transientProfileError(lastMessage)) throw restError;
+          nextProfile = await withTimeout(profileFunctionQuery(accessToken), 5_000);
+        }
+        if (!nextProfile) {
           setProfile(null);
           setProfileStatus({ state: "missing", message: "ยังไม่พบโปรไฟล์ที่ตรงกับบัญชีนี้" });
           return;
         }
-        const nextProfile = data as Profile;
         setProfile(nextProfile);
         writeCachedProfile(nextProfile);
         setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
@@ -117,7 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         lastMessage = e instanceof Error ? e.message : String(e);
         if (!transientProfileError(lastMessage)) break;
-        setProfileStatus({ state: "loading", message: `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}` });
+        setProfileStatus({
+          state: cached ? "stale" : "loading",
+          message: cached ? "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว" : `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}`,
+        });
         await wait(Math.min(1_500, 300 * attempt));
       }
     }
@@ -142,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         if (!profileRequestRef.current) {
-          profileRequestRef.current = loadProfile(s.user.id, s.user).finally(() => {
+          profileRequestRef.current = loadProfile(s.user.id, s.access_token).finally(() => {
             profileRequestRef.current = null;
           });
         }
