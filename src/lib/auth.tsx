@@ -42,21 +42,8 @@ const transientProfileError = (message: string) =>
   /schema cache|database client|retrying|recovery mode|connection error|failed to fetch|aborted|timeout|ใช้เวลานาน/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-const buildFallbackProfile = (u: User): Profile => {
-  const email = u.email ?? null;
-  const fullName = u.user_metadata?.full_name || email?.split("@")[0] || "ผู้ใช้งาน";
-  return {
-    id: u.id,
-    full_name: fullName,
-    email,
-    role: "teacher",
-    requested_role: "teacher",
-    avatar_initials: fullName.slice(0, 1).toUpperCase(),
-    avatar_color: "bg-primary",
-    approval_status: "approved",
-    is_super_admin: false,
-  };
-};
+// Note: we intentionally do NOT build a fallback profile from JWT metadata.
+// Doing so previously caused admins/super-admins to appear as "teacher" when the DB was slow.
 
 const profileQueryWithTimeout = async (uid: string, timeoutMs = 1600) => {
   const controller = new AbortController();
@@ -149,12 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.warning("โหลดโปรไฟล์สดไม่สำเร็จชั่วคราว ระบบใช้ข้อมูลบัญชีล่าสุดให้ก่อน");
       return;
     }
-    if (authUser && transientProfileError(lastMessage)) {
-      const fallback = buildFallbackProfile(authUser);
-      setProfile(fallback);
-      setProfileStatus({ state: "stale", message: "เปิดหน้าให้ใช้งานก่อน เพราะฐานข้อมูลตอบกลับช้า" });
-      return;
-    }
+    // Do NOT fabricate a role from session metadata — that caused super admins to appear as "teacher".
+    // If we have no cached profile and the DB is slow, surface a real error so RequireAuth can show retry UI.
     setProfile(null);
     setProfileStatus({ state: "error", message: `โหลดโปรไฟล์ไม่สำเร็จ: ${lastMessage}` });
   }, []);
