@@ -39,7 +39,7 @@ const PROFILE_COLUMNS = "id, full_name, email, role, avatar_initials, avatar_col
 const PROFILE_CACHE_KEY = "mathbank.profile.";
 const profileMemoryCache = new Map<string, Profile>();
 const transientProfileError = (message: string) =>
-  /schema cache|database client|retrying|recovery mode|connection error|connection reset|failed to fetch|aborted|timeout|ใช้เวลานาน|503|PGRST002/i.test(message);
+  /schema cache|database client|retrying|recovery mode|connection error|connection reset|failed to fetch|aborted|timeout|ใช้เวลานาน|503|500|PGRST00[0-9]|profile function failed|no connection to the server/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const asErrorMessage = (value: unknown) => {
   if (!value) return "unknown error";
