@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MathRender } from "@/components/MathRender";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -15,21 +16,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, Search, Edit3, Copy, Archive, Eye, Filter, X, Upload, Send,
-  CheckCheck, FileSpreadsheet,
+  Plus, Search, Edit3, Copy, Archive, Eye, Filter, X, Upload,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Question, QuestionStatus } from "@/lib/types";
 
 const TYPE_LABEL: Record<string, string> = { mcq: "ปรนัย", short: "เติมคำตอบ", tf: "ถูก/ผิด", written: "อัตนัย" };
 const DIFF_LABEL: Record<string, string> = { easy: "ง่าย", medium: "ปานกลาง", hard: "ยาก" };
-const STATUS_LABEL: Record<string, string> = { published: "เผยแพร่", draft: "ฉบับร่าง", review: "รออนุมัติ", archived: "เก็บถาวร" };
-const STATUS_TONE: Record<string, string> = {
-  published: "bg-success/10 text-success",
-  draft: "bg-muted text-muted-foreground",
-  review: "bg-warning/10 text-warning",
-  archived: "bg-destructive/10 text-destructive",
-};
 
 export default function QuestionBank() {
   const navigate = useNavigate();
