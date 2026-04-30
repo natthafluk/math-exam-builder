@@ -256,6 +256,29 @@ export default function QuestionEditor() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === "draft" ? "ยืนยันเก็บเป็นส่วนตัว" : "ยืนยันส่งเข้าคลังกลาง"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "draft"
+                ? "ข้อสอบนี้จะถูกบันทึกเป็นของคุณคนเดียว ครูคนอื่นจะมองไม่เห็น"
+                : "ข้อสอบนี้จะถูกส่งเข้าคลังกลาง ครูทุกคนสามารถนำไปใช้ได้"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              const a = confirmAction;
+              setConfirmAction(null);
+              if (a) save(a);
+            }}>ยืนยัน</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
