@@ -1,14 +1,24 @@
 import { createContext, useContext, useMemo, useState, ReactNode, useCallback, useEffect } from "react";
-import type { Attempt, ClassRoom, Exam, Question, Role, Topic, User, AuditEntry, SchoolSettings } from "./types";
-import {
-  seedAttempts, seedClasses, seedExams, seedQuestions, seedTopics, seedAudit, seedSchool,
-} from "./seed";
+import type { Attempt, ClassRoom, Exam, Question, Role, Topic, User, AuditEntry, SchoolSettings, Choice } from "./types";
+import { seedTopics, seedAudit, seedSchool } from "./seed";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
 import { toast } from "sonner";
 
 const isTransient = (msg: string) =>
-  /schema cache|recovery mode|connection|timeout|fetch|temporarily|503|PGRST002/i.test(msg);
+  /schema cache|recovery mode|connection|connection reset|timeout|fetch|temporarily|503|PGRST002|network/i.test(msg);
+
+const errorMessage = (error: unknown) => {
+  if (!error) return "unknown error";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    const maybe = error as { message?: unknown; code?: unknown };
+    return [maybe.code, maybe.message].filter(Boolean).join(" ") || JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+};
 
 async function withRetry<T>(fn: () => Promise<{ error: any; data?: T }>, attempts = 4) {
   let lastErr: any = null;
@@ -16,7 +26,7 @@ async function withRetry<T>(fn: () => Promise<{ error: any; data?: T }>, attempt
     const res = await fn();
     if (!res.error) return res;
     lastErr = res.error;
-    if (!isTransient(res.error.message ?? String(res.error))) return res;
+    if (!isTransient(errorMessage(res.error))) return res;
     await new Promise((r) => setTimeout(r, 400 * (i + 1)));
   }
   return { error: lastErr } as any;
@@ -34,10 +44,11 @@ interface StoreCtx {
   audit: AuditEntry[];
   school: SchoolSettings;
   setSchool: (s: SchoolSettings) => void;
-  addQuestion: (q: Question) => void;
-  updateQuestion: (q: Question) => void;
-  deleteQuestion: (id: string) => void;
-  bulkUpdateQuestionStatus: (ids: string[], status: Question["status"]) => void;
+  refreshQuestions: (source?: string) => Promise<Question[]>;
+  addQuestion: (q: Question) => Promise<Question | null>;
+  updateQuestion: (q: Question) => Promise<Question | null>;
+  deleteQuestion: (id: string) => Promise<void>;
+  bulkUpdateQuestionStatus: (ids: string[], status: Question["status"]) => Promise<void>;
   addExam: (e: Exam) => void;
   updateExam: (e: Exam) => void;
   saveAttempt: (a: Attempt) => void;
@@ -52,8 +63,7 @@ interface StoreCtx {
 
 const Ctx = createContext<StoreCtx | null>(null);
 
-// Map DB question row → app Question shape
-function mapDbQuestion(row: any): Question {
+export function mapDbQuestion(row: any, choices?: Choice[]): Question {
   return {
     id: row.id,
     title: row.title,
@@ -69,14 +79,17 @@ function mapDbQuestion(row: any): Question {
     tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    choices: undefined,
+    choices,
   };
+}
+
+function mapChoice(row: any): Choice {
+  return { id: row.label, text: row.body_latex ?? "" };
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
 
-  // Real users come from Supabase profiles via useAuth(); seed users were demo data only.
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
   const [classes] = useState<ClassRoom[]>([]);
@@ -88,31 +101,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [school, setSchool] = useState<SchoolSettings>(seedSchool);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  // Hydrate topics + questions from Supabase when authenticated
+  const refreshQuestions = useCallback(async (source = "StoreProvider") => {
+    if (!user) {
+      setQuestions([]);
+      return [];
+    }
+
+    const qRes = await withRetry(() => supabase.from("questions").select("*").order("updated_at", { ascending: false }) as any);
+    if (qRes.error) {
+      const msg = errorMessage(qRes.error);
+      console.error("[questions] DB load failed", { source, error: msg });
+      setQuestions([]);
+      setIsBackendConnected(false);
+      toast.error("โหลดข้อสอบจากฐานข้อมูลไม่สำเร็จ: " + msg, { duration: Infinity });
+      return [];
+    }
+
+    const rows = (qRes.data ?? []) as any[];
+    const ids = rows.map((r) => r.id);
+    const choicesByQuestion = new Map<string, Choice[]>();
+    if (ids.length > 0) {
+      const cRes = await withRetry(() => supabase
+        .from("question_choices")
+        .select("question_id, label, body_latex, sort_order")
+        .in("question_id", ids)
+        .order("sort_order", { ascending: true }) as any);
+      if (cRes.error) {
+        console.warn("[questions] DB choices load failed", { source, error: errorMessage(cRes.error) });
+      } else {
+        for (const row of (cRes.data ?? []) as any[]) {
+          const arr = choicesByQuestion.get(row.question_id) ?? [];
+          arr.push(mapChoice(row));
+          choicesByQuestion.set(row.question_id, arr);
+        }
+      }
+    }
+
+    const mapped = rows.map((row) => mapDbQuestion(row, choicesByQuestion.get(row.id)));
+    console.info("[questions] DB load success", { source, rowCount: mapped.length });
+    setQuestions(mapped);
+    setIsBackendConnected(true);
+    return mapped;
+  }, [user]);
+
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setQuestions([]);
+      return;
+    }
     let cancelled = false;
     (async () => {
-      const [tRes, qRes] = await Promise.all([
-        supabase.from("topics").select("id, title, grade_level, parent_topic_id"),
-        supabase.from("questions").select("*").order("updated_at", { ascending: false }),
-      ]);
+      const tRes = await supabase.from("topics").select("id, title, grade_level, parent_topic_id");
       if (cancelled) return;
       if (tRes.data && tRes.data.length > 0) {
         setTopics(tRes.data.map((r: any) => ({
           id: r.id, title: r.title, gradeLevel: r.grade_level, parentId: r.parent_topic_id ?? undefined,
         })));
       }
-      if (qRes.data) {
-        // DB-only: drop any non-UUID seed/mock data
-        setQuestions(qRes.data.map(mapDbQuestion));
-      }
-      setIsBackendConnected(true);
+      await refreshQuestions("StoreProvider hydrate");
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, refreshQuestions]);
 
-  // Build a User object from the real profile so the rest of the app works unchanged
   const currentUser: User = useMemo(() => {
     if (profile) {
       return {
@@ -135,8 +185,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ].slice(0, 50));
   }, [currentUser]);
 
-  const persistQuestion = async (q: Question, isNew: boolean) => {
-    if (!user) return;
+  const replaceQuestionChoices = async (q: Question) => {
+    const del = await withRetry(() => supabase.from("question_choices").delete().eq("question_id", q.id) as any);
+    if (del.error) return del.error;
+
+    if (q.type !== "mcq") return null;
+    const rows = (q.choices ?? [])
+      .filter((c) => c.id.trim())
+      .map((c, index) => ({
+        question_id: q.id,
+        label: c.id,
+        body_latex: c.text ?? "",
+        sort_order: index,
+        is_correct: c.id === q.correctAnswer,
+      }));
+    if (rows.length === 0) return null;
+
+    const ins = await withRetry(() => supabase.from("question_choices").insert(rows) as any);
+    return ins.error ?? null;
+  };
+
+  const persistQuestion = async (q: Question, isNew: boolean): Promise<Question | null> => {
+    if (!user) {
+      toast.error("ยังไม่ได้เข้าสู่ระบบ", { duration: Infinity });
+      return null;
+    }
     const payload = {
       id: q.id,
       title: q.title,
@@ -145,57 +218,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       correct_answer: q.correctAnswer,
       explanation_latex: q.explanation,
       grade_level: q.gradeLevel,
-      topic_id: q.topicId && q.topicId.length === 36 ? q.topicId : null,
+      topic_id: q.topicId && /^[0-9a-f]{8}-/i.test(q.topicId) ? q.topicId : null,
       difficulty: q.difficulty,
       status: q.status,
       author_id: user.id,
       tags: q.tags,
     };
-    if (isNew) {
-      const res = await withRetry(() => supabase.from("questions").insert(payload) as any);
-      if (res.error) {
-        console.warn("Insert question failed:", res.error.message);
-        toast.error("บันทึกข้อสอบลงคลังไม่สำเร็จ: " + res.error.message + " — โปรดลองใหม่อีกครั้ง");
-        // Roll the question out of local state so user knows it isn't saved
-        setQuestions((p) => p.filter((x) => x.id !== q.id));
-      } else {
-        toast.success("บันทึกข้อสอบเข้าคลังแล้ว");
-      }
-    } else {
-      const res = await withRetry(() => supabase.from("questions").update(payload).eq("id", q.id) as any);
-      if (res.error) {
-        console.warn("Update question failed:", res.error.message);
-        toast.error("อัปเดตข้อสอบไม่สำเร็จ: " + res.error.message);
-      }
+
+    const saveRow = isNew
+      ? await withRetry(() => supabase.from("questions").insert(payload).select("*").single() as any)
+      : await withRetry(() => supabase.from("questions").update(payload).eq("id", q.id).select("*").single() as any);
+
+    if (saveRow.error) {
+      const msg = errorMessage(saveRow.error);
+      console.error(isNew ? "[questions] DB insert failure" : "[questions] DB update failure", { questionId: q.id, error: msg });
+      toast.error((isNew ? "บันทึกข้อสอบลงฐานข้อมูลไม่สำเร็จ: " : "อัปเดตข้อสอบไม่สำเร็จ: ") + msg, { duration: Infinity });
+      return null;
     }
+
+    const saved = mapDbQuestion(saveRow.data, q.choices);
+    const choicesError = await replaceQuestionChoices({ ...saved, choices: q.choices, correctAnswer: q.correctAnswer, type: q.type });
+    if (choicesError) {
+      const msg = errorMessage(choicesError);
+      console.error("[questions] DB choices save failure", { questionId: saved.id, error: msg });
+      if (isNew) await supabase.from("questions").delete().eq("id", saved.id);
+      toast.error("บันทึกตัวเลือกข้อสอบไม่สำเร็จ: " + msg, { duration: Infinity });
+      return null;
+    }
+
+    console.info(isNew ? "[questions] DB insert success" : "[questions] DB update success", { questionId: saved.id, status: saved.status });
+    setQuestions((p) => isNew ? [saved, ...p.filter((x) => x.id !== saved.id)] : p.map((x) => (x.id === saved.id ? saved : x)));
+    setIsBackendConnected(true);
+    return saved;
   };
 
   const value = useMemo<StoreCtx>(() => ({
     currentUser, setCurrentUserId, users, classes, topics, questions, exams, attempts, audit, school, setSchool,
     isBackendConnected,
-    addQuestion: (q) => {
-      // give DB-compatible UUID id if needed
-      const newId = /^[0-9a-f]{8}-/.test(q.id) ? q.id : crypto.randomUUID();
+    refreshQuestions,
+    addQuestion: async (q) => {
+      const newId = /^[0-9a-f]{8}-/i.test(q.id) ? q.id : crypto.randomUUID();
       const fixed = { ...q, id: newId, authorId: user?.id ?? q.authorId };
-      setQuestions((p) => [fixed, ...p]);
-      persistQuestion(fixed, true);
+      return persistQuestion(fixed, true);
     },
-    updateQuestion: (q) => {
-      setQuestions((p) => p.map((x) => (x.id === q.id ? q : x)));
-      // Only persist UUID-shaped IDs (skip seed mock IDs like "q-1")
-      if (/^[0-9a-f]{8}-/.test(q.id)) persistQuestion(q, false);
-    },
-    deleteQuestion: (id) => {
+    updateQuestion: async (q) => persistQuestion({ ...q, authorId: user?.id ?? q.authorId }, false),
+    deleteQuestion: async (id) => {
+      if (/^[0-9a-f]{8}-/i.test(id)) {
+        const res = await withRetry(() => supabase.from("questions").delete().eq("id", id) as any);
+        if (res.error) {
+          toast.error("ลบข้อสอบไม่สำเร็จ: " + errorMessage(res.error), { duration: Infinity });
+          return;
+        }
+      }
       setQuestions((p) => p.filter((x) => x.id !== id));
-      if (/^[0-9a-f]{8}-/.test(id)) supabase.from("questions").delete().eq("id", id);
     },
-    bulkUpdateQuestionStatus: (ids, status) => {
+    bulkUpdateQuestionStatus: async (ids, status) => {
+      const dbIds = ids.filter((id) => /^[0-9a-f]{8}-/i.test(id));
+      if (dbIds.length > 0) {
+        const res = await withRetry(() => supabase.from("questions").update({ status }).in("id", dbIds) as any);
+        if (res.error) {
+          toast.error("อัปเดตสถานะข้อสอบไม่สำเร็จ: " + errorMessage(res.error), { duration: Infinity });
+          return;
+        }
+      }
       const ts = new Date().toISOString();
       setQuestions((p) => p.map((x) => (ids.includes(x.id) ? { ...x, status, updatedAt: ts } : x)));
-      const dbIds = ids.filter((id) => /^[0-9a-f]{8}-/.test(id));
-      if (dbIds.length > 0) supabase.from("questions").update({ status }).in("id", dbIds);
     },
-    addExam: (e) => setExams((p) => [e, ...p]),
+    addExam: (e) => setExams((p) => [e, ...p.filter((x) => x.id !== e.id)]),
     updateExam: (e) => setExams((p) => p.map((x) => (x.id === e.id ? e : x))),
     saveAttempt: (a) => setAttempts((p) => {
       const exists = p.some((x) => x.id === a.id);
@@ -207,7 +296,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addTopic: (t) => setTopics((p) => [...p, t]),
     deleteTopic: (id) => setTopics((p) => p.filter((t) => t.id !== id)),
     logAudit,
-  }), [currentUser, users, classes, topics, questions, exams, attempts, audit, school, logAudit, isBackendConnected, user]);
+  }), [currentUser, users, classes, topics, questions, exams, attempts, audit, school, logAudit, isBackendConnected, user, refreshQuestions]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

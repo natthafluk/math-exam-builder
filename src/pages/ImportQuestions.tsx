@@ -46,15 +46,16 @@ export default function ImportQuestions() {
     toast.success(`พบ ${parsed.length} รายการ — ตรวจสอบก่อนยืนยัน`);
   };
 
-  const importAll = () => {
+  const importAll = async () => {
     const valid = rows.filter(r => r.ok);
     if (valid.length === 0) { toast.error("ไม่มีรายการที่นำเข้าได้"); return; }
     const lines = raw.trim().split("\n").slice(1).filter(Boolean);
-    valid.forEach((r, idx) => {
+    let savedCount = 0;
+    for (const [idx, r] of valid.entries()) {
       const cols = splitCsv(lines[idx]);
       const type = r.type as any;
-      addQuestion({
-        id: `q-imp-${Date.now()}-${idx}`,
+      const saved = await addQuestion({
+        id: crypto.randomUUID(),
         title: r.title,
         body: cols[2] ?? "",
         type,
@@ -71,9 +72,11 @@ export default function ImportQuestions() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-    });
-    logAudit({ action: `นำเข้าข้อสอบ ${valid.length} ข้อ`, tone: "success" });
-    toast.success(`นำเข้าสำเร็จ ${valid.length} ข้อ (สถานะ: ฉบับร่าง)`);
+      if (saved) savedCount += 1;
+    }
+    if (savedCount === 0) return;
+    logAudit({ action: `นำเข้าข้อสอบ ${savedCount} ข้อ`, tone: "success" });
+    toast.success(`นำเข้าสำเร็จ ${savedCount} ข้อ`);
     navigate("/questions");
   };
 

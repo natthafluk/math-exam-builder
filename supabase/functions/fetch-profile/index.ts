@@ -28,6 +28,18 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const errorMessage = (error: unknown) => {
+  if (!error) return "unknown error";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    const value = error as { message?: unknown; code?: unknown; details?: unknown };
+    return [value.code, value.message, value.details].filter(Boolean).join(" — ") || JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -70,7 +82,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
+    return new Response(JSON.stringify({ error: errorMessage(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

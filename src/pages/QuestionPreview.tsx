@@ -53,7 +53,6 @@ export default function QuestionPreview() {
             {topic && <span className="chip bg-muted text-muted-foreground">{topic.title}</span>}
             <span className="chip bg-accent-soft text-accent">{DIFF_LABEL[q.difficulty]}</span>
             <span className="chip bg-secondary text-secondary-foreground">{TYPE_LABEL[q.type]}</span>
-            <span className="chip bg-muted text-muted-foreground">สถานะ: {q.status}</span>
           </div>
           <h2 className="text-xl font-semibold mb-3">{q.title}</h2>
           <div className="text-[16px] leading-relaxed">

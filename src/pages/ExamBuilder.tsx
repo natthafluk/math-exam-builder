@@ -23,7 +23,7 @@ import {
   ArrowDown, ArrowUp, Save, Sparkles, X, ArrowLeft, ArrowRight, Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Exam, ExamSettings } from "@/lib/types";
+import type { Exam, ExamSettings, Question } from "@/lib/types";
 
 const STEPS = ["รายละเอียด", "เลือกข้อสอบ", "ตั้งค่า & ทบทวน", "มอบหมาย"] as const;
 
@@ -36,13 +36,17 @@ const DEFAULT_SETTINGS: ExamSettings = {
 };
 
 interface DbClass { id: string; name: string; grade_level: string; teacher_id: string | null; student_count: number }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function ExamBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { exams, questions, topics, currentUser, addExam, updateExam, logAudit } = useStore();
-  const existing = id && id !== "new" ? exams.find((e) => e.id === id) : undefined;
+  const { topics, currentUser, addExam, updateExam, logAudit, refreshQuestions } = useStore();
+  const isEditingDbExam = !!id && id !== "new" && UUID_RE.test(id);
+  const [existing, setExisting] = useState<Exam | null>(null);
+  const [dbQuestions, setDbQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
 
   // Real classes from DB (filtered by RPC to current teacher / admin)
   const [classes, setClasses] = useState<DbClass[]>([]);
@@ -70,6 +74,70 @@ export default function ExamBuilder() {
     return () => { cancelled = true; };
   }, [profile]);
 
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      setQuestionsLoading(true);
+      const rows = await refreshQuestions("ExamBuilder question picker");
+      if (cancelled) return;
+      const dbOnly = rows.filter((q) => UUID_RE.test(q.id));
+      console.info("[exam-builder] DB question picker load", {
+        source: "questions",
+        rowCount: dbOnly.filter((q) => q.status === "published").length,
+      });
+      setDbQuestions(dbOnly);
+      setQuestionsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile, refreshQuestions]);
+
+  useEffect(() => {
+    if (!profile || !isEditingDbExam || !id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: examRow, error } = await supabase
+        .from("exams")
+        .select("id, title, description, teacher_id, time_limit_minutes, due_date, show_explanations, status, settings, created_at")
+        .eq("id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !examRow) {
+        toast.error("โหลดชุดข้อสอบไม่สำเร็จ: " + (error?.message ?? "ไม่พบชุดข้อสอบ"));
+        return;
+      }
+
+      const [qRes, aRes] = await Promise.all([
+        supabase.from("exam_questions").select("question_id, sort_order, points").eq("exam_id", id).order("sort_order", { ascending: true }),
+        supabase.from("assignments").select("class_id").eq("exam_id", id),
+      ]);
+      if (cancelled) return;
+      if (qRes.error) toast.error("โหลดรายการข้อสอบในชุดไม่สำเร็จ: " + qRes.error.message);
+
+      const loaded: Exam = {
+        id: examRow.id,
+        title: examRow.title,
+        description: examRow.description ?? "",
+        teacherId: examRow.teacher_id ?? currentUser.id,
+        classIds: ((aRes.data ?? []) as any[]).map((a) => a.class_id),
+        questions: ((qRes.data ?? []) as any[]).map((q, index) => ({
+          questionId: q.question_id,
+          order: q.sort_order ?? index + 1,
+          points: q.points ?? 1,
+        })),
+        timeLimitMinutes: examRow.time_limit_minutes,
+        dueDate: examRow.due_date ? String(examRow.due_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        showExplanations: examRow.show_explanations,
+        status: examRow.status,
+        settings: { ...DEFAULT_SETTINGS, ...((examRow.settings as unknown as Partial<ExamSettings>) ?? {}) },
+        createdAt: examRow.created_at,
+      };
+      setExisting(loaded);
+      setDraft(loaded);
+    })();
+    return () => { cancelled = true; };
+  }, [profile, isEditingDbExam, id, currentUser.id]);
+
   const [step, setStep] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [draft, setDraft] = useState<Exam>(
@@ -94,7 +162,7 @@ export default function ExamBuilder() {
 
   const selectedIds = useMemo(() => new Set(draft.questions.map((q) => q.questionId)), [draft.questions]);
   const totalPoints = draft.questions.reduce((s, q) => s + q.points, 0);
-  const items = draft.questions.map(eq => ({ eq, q: questions.find(q => q.id === eq.questionId)! })).filter(x => x.q);
+  const items = draft.questions.map(eq => ({ eq, q: dbQuestions.find(q => q.id === eq.questionId)! })).filter(x => x.q);
 
   const distribution = useMemo(() => {
     const byTopic: Record<string, number> = {};
@@ -124,7 +192,7 @@ export default function ExamBuilder() {
     set("questions", draft.questions.map((q, i) => (i === idx ? { ...q, points: pts } : q)));
   };
   const generateRandom = () => {
-    const pool = questions.filter((q) =>
+    const pool = dbQuestions.filter((q) =>
       q.status === "published" && q.gradeLevel === randGrade &&
       (randDiff === "all" || q.difficulty === randDiff) && !selectedIds.has(q.id)
     );
@@ -267,7 +335,7 @@ export default function ExamBuilder() {
                 ) : (
                   <ol className="space-y-2">
                     {draft.questions.map((q, i) => {
-                      const item = questions.find((x) => x.id === q.questionId)!;
+                      const item = dbQuestions.find((x) => x.id === q.questionId)!;
                       return (
                         <li key={q.questionId} className="flex flex-col sm:flex-row sm:items-start gap-2 p-3 rounded-md border border-border">
                           <span className="text-sm font-semibold text-muted-foreground sm:w-6">{i + 1}.</span>
@@ -318,13 +386,16 @@ export default function ExamBuilder() {
               <Card className="p-5">
                 <h3 className="font-semibold mb-3">เลือกจากคลัง</h3>
                 {(() => {
-                  const dbPublished = questions.filter(q => q.status === "published" && /^[0-9a-f]{8}-/i.test(q.id));
+                  const dbPublished = dbQuestions.filter(q => q.status === "published" && UUID_RE.test(q.id));
+                  if (questionsLoading) {
+                    return <div className="text-sm text-muted-foreground py-6 text-center">กำลังโหลดข้อสอบจากฐานข้อมูล...</div>;
+                  }
                   if (dbPublished.length === 0) {
                     return (
                       <div className="text-center py-6 space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          ยังไม่มีข้อสอบจริงในคลัง<br/>
-                          <span className="text-xs">(ข้อสอบตัวอย่างเป็นเพียงเดโม ส่งมอบหมายไม่ได้)</span>
+                          ยังไม่มีข้อสอบที่เผยแพร่ในฐานข้อมูล<br/>
+                          <span className="text-xs">สร้างข้อสอบแล้วเลือก “ส่งเข้าคลัง” ก่อน จึงจะเลือกเข้าชุดข้อสอบได้</span>
                         </p>
                         <Button size="sm" variant="outline" onClick={() => navigate("/questions/new")}>
                           + สร้างข้อสอบใหม่

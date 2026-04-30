@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
@@ -20,14 +20,14 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Question, QuestionStatus } from "@/lib/types";
+import type { Question } from "@/lib/types";
 
 const TYPE_LABEL: Record<string, string> = { mcq: "ปรนัย", short: "เติมคำตอบ", tf: "ถูก/ผิด", written: "อัตนัย" };
 const DIFF_LABEL: Record<string, string> = { easy: "ง่าย", medium: "ปานกลาง", hard: "ยาก" };
 
 export default function QuestionBank() {
   const navigate = useNavigate();
-  const { questions, topics, currentUser, addQuestion, bulkUpdateQuestionStatus, logAudit } = useStore();
+  const { questions, topics, currentUser, addQuestion, bulkUpdateQuestionStatus, logAudit, refreshQuestions } = useStore();
   const [tab, setTab] = useState<"mine" | "bank">("mine");
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("all");
@@ -36,6 +36,10 @@ export default function QuestionBank() {
   const [type, setType] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<null | { kind: "archive"; ids: string[] }>(null);
+
+  useEffect(() => {
+    refreshQuestions("QuestionBank load");
+  }, [refreshQuestions]);
 
   const scoped = useMemo(() => questions.filter((x) => {
     if (tab === "mine") return x.authorId === currentUser.id;
@@ -67,9 +71,9 @@ export default function QuestionBank() {
   });
   const toggleAll = () => setSelected(selected.size === filtered.length ? new Set() : new Set(filtered.map(x => x.id)));
 
-  const duplicate = (item: Question) => {
-    addQuestion({ ...item, id: `q-${Date.now()}`, title: item.title + " (สำเนา)", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-    toast.success("ทำสำเนาข้อสอบแล้ว");
+  const duplicate = async (item: Question) => {
+    const saved = await addQuestion({ ...item, id: crypto.randomUUID(), title: item.title + " (สำเนา)", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    if (saved) toast.success("ทำสำเนาข้อสอบแล้ว");
   };
 
   return (

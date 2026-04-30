@@ -39,8 +39,19 @@ const PROFILE_COLUMNS = "id, full_name, email, role, avatar_initials, avatar_col
 const PROFILE_CACHE_KEY = "mathbank.profile.";
 const profileMemoryCache = new Map<string, Profile>();
 const transientProfileError = (message: string) =>
-  /schema cache|database client|retrying|recovery mode|connection error|failed to fetch|aborted|timeout|ใช้เวลานาน/i.test(message);
+  /schema cache|database client|retrying|recovery mode|connection error|connection reset|failed to fetch|aborted|timeout|ใช้เวลานาน|503|PGRST002/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const asErrorMessage = (value: unknown) => {
+  if (!value) return "unknown error";
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+  try {
+    const maybe = value as { message?: unknown; error?: unknown; code?: unknown };
+    return [maybe.code, maybe.message ?? maybe.error].filter(Boolean).join(" ") || JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
 
 const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
   let timeoutId: number | undefined;
@@ -81,7 +92,7 @@ const profileFunctionQuery = async (accessToken?: string): Promise<Profile | nul
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || `profile function failed (${response.status})`);
+  if (!response.ok) throw new Error(asErrorMessage(data?.error ?? data) || `profile function failed (${response.status})`);
   return (data?.profile ?? null) as Profile | null;
 };
 
@@ -128,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cached) {
       setProfile(cached);
       setProfileStatus({ state: "stale", message: "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว" });
+      console.warn("[auth] profile source: cache", { userId: uid, role: cached.role, approval: cached.approval_status });
     } else {
       setProfileStatus({ state: "loading", message: "กำลังโหลดโปรไฟล์" });
     }
@@ -144,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (error) throw new Error(error.message);
           nextProfile = data as Profile | null;
         } catch (restError) {
-          lastMessage = restError instanceof Error ? restError.message : String(restError);
+          lastMessage = asErrorMessage(restError);
           if (!transientProfileError(lastMessage)) throw restError;
           nextProfile = await withTimeout(profileFunctionQuery(accessToken), 5_000);
         }
@@ -156,10 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(nextProfile);
         writeCachedProfile(nextProfile);
         setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
-        console.info("[auth] profile loaded:", nextProfile, "→ resolved role:", nextProfile.role, "approval:", nextProfile.approval_status);
+        console.info("[auth] profile source: DB", { userId: nextProfile.id, role: nextProfile.role, approval: nextProfile.approval_status });
         return;
       } catch (e) {
-        lastMessage = e instanceof Error ? e.message : String(e);
+        lastMessage = asErrorMessage(e);
         if (!transientProfileError(lastMessage)) break;
         setProfileStatus({
           state: cached ? "stale" : "loading",
@@ -172,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cached && transientProfileError(lastMessage)) {
       setProfile(cached);
       setProfileStatus({ state: "stale", message: "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว เพราะฐานข้อมูลตอบกลับช้า" });
+      console.warn("[auth] profile source: stale cache fallback", { userId: uid, role: cached.role, approval: cached.approval_status, error: lastMessage });
       toast.warning("โหลดโปรไฟล์สดไม่สำเร็จชั่วคราว ระบบใช้ข้อมูลบัญชีล่าสุดให้ก่อน");
       return;
     }
