@@ -177,13 +177,7 @@ export default function QuestionBank() {
                   <Button variant="ghost" size="icon" onClick={() => duplicate(item)} title="ทำสำเนา" aria-label={`ทำสำเนา ${item.title}`}>
                     <Copy className="w-4 h-4" />
                   </Button>
-                  {item.status === "draft" && (
-                    <Button variant="ghost" size="icon" onClick={() => sendForReview(item)} title="ส่งให้ตรวจ" aria-label={`ส่งให้ตรวจ ${item.title}`}>
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="icon" onClick={() => setConfirm({ kind: "archive", ids: [item.id] })} title="เก็บถาวร" aria-label={`เก็บถาวร ${item.title}`}>
-                    <Archive className="w-4 h-4" />
+                  </Button>
                   </Button>
                 </div>
               </div>
