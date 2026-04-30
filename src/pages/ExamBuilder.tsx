@@ -23,7 +23,7 @@ import {
   ArrowDown, ArrowUp, Save, Sparkles, X, ArrowLeft, ArrowRight, Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Exam, ExamSettings } from "@/lib/types";
+import type { Exam, ExamSettings, Question } from "@/lib/types";
 
 const STEPS = ["รายละเอียด", "เลือกข้อสอบ", "ตั้งค่า & ทบทวน", "มอบหมาย"] as const;
 
@@ -36,13 +36,17 @@ const DEFAULT_SETTINGS: ExamSettings = {
 };
 
 interface DbClass { id: string; name: string; grade_level: string; teacher_id: string | null; student_count: number }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function ExamBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { exams, questions, topics, currentUser, addExam, updateExam, logAudit } = useStore();
-  const existing = id && id !== "new" ? exams.find((e) => e.id === id) : undefined;
+  const { topics, currentUser, addExam, updateExam, logAudit, refreshQuestions } = useStore();
+  const isEditingDbExam = !!id && id !== "new" && UUID_RE.test(id);
+  const [existing, setExisting] = useState<Exam | null>(null);
+  const [dbQuestions, setDbQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
 
   // Real classes from DB (filtered by RPC to current teacher / admin)
   const [classes, setClasses] = useState<DbClass[]>([]);
@@ -69,6 +73,24 @@ export default function ExamBuilder() {
     })();
     return () => { cancelled = true; };
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      setQuestionsLoading(true);
+      const rows = await refreshQuestions("ExamBuilder question picker");
+      if (cancelled) return;
+      const dbOnly = rows.filter((q) => UUID_RE.test(q.id));
+      console.info("[exam-builder] DB question picker load", {
+        source: "questions",
+        rowCount: dbOnly.filter((q) => q.status === "published").length,
+      });
+      setDbQuestions(dbOnly);
+      setQuestionsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile, refreshQuestions]);
 
   const [step, setStep] = useState(0);
   const [confirm, setConfirm] = useState(false);
