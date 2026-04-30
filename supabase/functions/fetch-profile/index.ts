@@ -1,24 +1,10 @@
-import { Pool } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-type ProfileRow = {
-  id: string;
-  full_name: string;
-  email: string | null;
-  role: string;
-  avatar_initials: string | null;
-  avatar_color: string | null;
-  approval_status: string | null;
-  is_super_admin: boolean | null;
-  requested_role: string | null;
-};
-
-const pool = new Pool(Deno.env.get("SUPABASE_DB_URL") ?? "", 1, true);
 
 const decodeUserId = (token: string) => {
   const payload = token.split(".")[1];
@@ -36,6 +22,12 @@ const decodeUserId = (token: string) => {
   }
 };
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -46,24 +38,16 @@ Deno.serve(async (req) => {
     });
   }
 
-  const authorization = req.headers.get("Authorization") ?? "";
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
-
-  if (!Deno.env.get("SUPABASE_DB_URL")) {
+  if (!SUPABASE_URL || !SERVICE_KEY) {
     return new Response(JSON.stringify({ error: "Missing backend configuration" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  if (!token) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const userId = decodeUserId(token);
+  const authorization = req.headers.get("Authorization") ?? "";
+  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  const userId = token ? decodeUserId(token) : null;
 
   if (!userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -72,17 +56,16 @@ Deno.serve(async (req) => {
     });
   }
 
-  const connection = await pool.connect();
   try {
-    const result = await connection.queryObject<ProfileRow>(
-      `select id, full_name, email, role, avatar_initials, avatar_color, approval_status, is_super_admin, requested_role
-       from public.profiles
-       where id = $1
-       limit 1`,
-      [userId],
-    );
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id, full_name, email, role, avatar_initials, avatar_color, approval_status, is_super_admin, requested_role")
+      .eq("id", userId)
+      .maybeSingle();
 
-    return new Response(JSON.stringify({ profile: result.rows[0] ?? null }), {
+    if (error) throw error;
+
+    return new Response(JSON.stringify({ profile: data ?? null }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -91,7 +74,5 @@ Deno.serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } finally {
-    connection.release();
   }
 });
