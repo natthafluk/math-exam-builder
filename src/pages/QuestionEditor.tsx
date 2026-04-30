@@ -11,6 +11,10 @@ import { MathRender } from "@/components/MathRender";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Trash2, Plus, ArrowLeft, Save, CheckCircle2, Circle, Lock, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { validateMath } from "@/lib/mathValidate";
