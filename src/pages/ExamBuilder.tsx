@@ -317,21 +317,39 @@ export default function ExamBuilder() {
 
               <Card className="p-5">
                 <h3 className="font-semibold mb-3">เลือกจากคลัง</h3>
-                <div className="space-y-2 max-h-[420px] overflow-y-auto scrollbar-thin -mx-2 px-2">
-                  {questions.filter(q => q.status === "published").map((q) => {
-                    const added = selectedIds.has(q.id);
+                {(() => {
+                  const dbPublished = questions.filter(q => q.status === "published" && /^[0-9a-f]{8}-/i.test(q.id));
+                  if (dbPublished.length === 0) {
                     return (
-                      <button key={q.id} onClick={() => added ? removeQuestion(q.id) : addQuestion(q.id)}
-                        className={`w-full text-left p-2.5 rounded-md border transition-colors ${added ? "border-success bg-success/5" : "border-border hover:bg-muted"}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-medium truncate">{q.title}</div>
-                          <span className="text-xs text-muted-foreground shrink-0">{q.gradeLevel}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5"><MathRender text={q.body} /></div>
-                      </button>
+                      <div className="text-center py-6 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          ยังไม่มีข้อสอบจริงในคลัง<br/>
+                          <span className="text-xs">(ข้อสอบตัวอย่างเป็นเพียงเดโม ส่งมอบหมายไม่ได้)</span>
+                        </p>
+                        <Button size="sm" variant="outline" onClick={() => navigate("/questions/new")}>
+                          + สร้างข้อสอบใหม่
+                        </Button>
+                      </div>
                     );
-                  })}
-                </div>
+                  }
+                  return (
+                    <div className="space-y-2 max-h-[420px] overflow-y-auto scrollbar-thin -mx-2 px-2">
+                      {dbPublished.map((q) => {
+                        const added = selectedIds.has(q.id);
+                        return (
+                          <button key={q.id} onClick={() => added ? removeQuestion(q.id) : addQuestion(q.id)}
+                            className={`w-full text-left p-2.5 rounded-md border transition-colors ${added ? "border-success bg-success/5" : "border-border hover:bg-muted"}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-medium truncate">{q.title}</div>
+                              <span className="text-xs text-muted-foreground shrink-0">{q.gradeLevel}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5"><MathRender text={q.body} /></div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </Card>
             </div>
           </div>
