@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Role } from "./types";
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileStatus, setProfileStatus] = useState<ProfileLoadStatus>({ state: "idle" });
+  const profileRequestRef = useRef<Promise<void> | null>(null);
 
   const loadProfile = useCallback(async (uid: string) => {
     const cached = readCachedProfile(uid);
@@ -127,27 +128,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const applySession = (s: Session | null) => {
       if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        setTimeout(() => {
-          loadProfile(s.user.id).finally(() => mounted && setLoading(false));
-        }, 0);
+        if (!profileRequestRef.current) {
+          profileRequestRef.current = loadProfile(s.user.id).finally(() => {
+            profileRequestRef.current = null;
+          });
+        }
+        profileRequestRef.current.finally(() => mounted && setLoading(false));
       } else {
         setProfile(null);
         setProfileStatus({ state: "idle" });
         setLoading(false);
       }
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setTimeout(() => applySession(s), 0);
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!mounted) return;
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) loadProfile(s.user.id).finally(() => mounted && setLoading(false));
-      else setLoading(false);
+      applySession(s);
     });
 
     return () => {
