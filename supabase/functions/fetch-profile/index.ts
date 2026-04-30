@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,11 +22,7 @@ const decodeUserId = (token: string) => {
   }
 };
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
 
 const errorMessage = (error: unknown) => {
   if (!error) return "unknown error";
@@ -50,8 +46,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return new Response(JSON.stringify({ error: "Missing backend configuration" }), {
+  if (!DB_URL) {
+    return new Response(JSON.stringify({ error: "Missing backend database configuration" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -68,16 +64,21 @@ Deno.serve(async (req) => {
     });
   }
 
+  let sql: ReturnType<typeof postgres> | null = null;
   try {
-    const { data, error } = await admin
-      .from("profiles")
-      .select("id, full_name, email, role, avatar_initials, avatar_color, approval_status, is_super_admin, requested_role")
-      .eq("id", userId)
-      .maybeSingle();
+    sql = postgres(DB_URL, { max: 1, idle_timeout: 5, connect_timeout: 8 });
 
-    if (error) throw error;
+    const rows = await sql`
+      SELECT id, full_name, email, role, avatar_initials, avatar_color,
+             approval_status, is_super_admin, requested_role
+      FROM public.profiles
+      WHERE id = ${userId}
+      LIMIT 1
+    `;
 
-    return new Response(JSON.stringify({ profile: data ?? null }), {
+    const profile = rows.length > 0 ? rows[0] : null;
+
+    return new Response(JSON.stringify({ profile }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -86,5 +87,9 @@ Deno.serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  } finally {
+    if (sql) {
+      try { await sql.end({ timeout: 3 }); } catch { /* noop */ }
+    }
   }
 });
