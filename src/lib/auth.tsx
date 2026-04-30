@@ -35,6 +35,7 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const PROFILE_COLUMNS = "id, full_name, email, role, avatar_initials, avatar_color, approval_status, is_super_admin, requested_role";
 const profileMemoryCache = new Map<string, Profile>();
 const transientProfileError = (message: string) =>
   /schema cache|database client|retrying/i.test(message);
@@ -58,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       try {
-        const { data, error } = await supabase.rpc("get_my_profile");
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(PROFILE_COLUMNS)
+          .eq("id", uid)
+          .maybeSingle();
         if (error) throw new Error(error.message);
         if (!data) {
           setProfile(null);
@@ -85,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setProfile(null);
-    setProfileStatus({ state: "error", message: `ผิดพลาดขณะโหลดโปรไฟล์ผ่าน RPC: ${lastMessage}` });
+    setProfileStatus({ state: "error", message: `โหลดโปรไฟล์ไม่สำเร็จ: ${lastMessage}` });
   }, []);
 
   useEffect(() => {
@@ -121,20 +126,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const repairProfile = useCallback(async (): Promise<{ error: string | null }> => {
     if (!user) return { error: "ยังไม่ได้เข้าสู่ระบบ" };
-    setProfileStatus({ state: "loading", message: "กำลังซ่อมโปรไฟล์ผ่าน RPC" });
-    const { data, error } = await supabase.rpc("repair_my_profile");
-    if (error) {
-      setProfileStatus({ state: "error", message: `ซ่อมโปรไฟล์ผ่าน RPC ไม่สำเร็จ: ${error.message}` });
+    setProfileStatus({ state: "loading", message: "กำลังสร้างโปรไฟล์" });
+
+    const fullName = user.user_metadata?.full_name || user.email?.split("@")[0] || "ผู้ใช้งาน";
+    const { error } = await supabase.from("profiles").insert({
+      id: user.id,
+      email: user.email ?? null,
+      full_name: fullName,
+      role: "teacher",
+      requested_role: "teacher",
+      avatar_initials: fullName.slice(0, 1).toUpperCase(),
+      avatar_color: "bg-primary",
+      approval_status: "pending",
+    });
+
+    if (error && error.code !== "23505") {
+      setProfileStatus({ state: "error", message: `สร้างโปรไฟล์ไม่สำเร็จ: ${error.message}` });
       return { error: error.message };
     }
-    if (data) {
-      const repaired = data as Profile;
-      setProfile(repaired);
-      writeCachedProfile(repaired);
-      setProfileStatus({ state: "ok", message: "ซ่อมและโหลดโปรไฟล์ผ่าน RPC สำเร็จ" });
-    } else {
-      await loadProfile(user.id);
-    }
+
+    await loadProfile(user.id);
     return { error: null };
   }, [user, loadProfile]);
 
