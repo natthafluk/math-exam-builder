@@ -66,8 +66,8 @@ const profileQueryWithTimeout = async (uid: string, timeoutMs = 1600) => {
       .from("profiles")
       .select(PROFILE_COLUMNS)
       .eq("id", uid)
-      .maybeSingle()
-      .abortSignal(controller.signal);
+      .abortSignal(controller.signal)
+      .maybeSingle();
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         if (!profileRequestRef.current) {
-          profileRequestRef.current = loadProfile(s.user.id).finally(() => {
+          profileRequestRef.current = loadProfile(s.user.id, s.user).finally(() => {
             profileRequestRef.current = null;
           });
         }
