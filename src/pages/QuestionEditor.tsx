@@ -41,6 +41,7 @@ export default function QuestionEditor() {
     }
   );
   const [tagInput, setTagInput] = useState("");
+  const [confirmAction, setConfirmAction] = useState<null | "draft" | "published">(null);
 
   const set = <K extends keyof Question>(k: K, v: Question[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
