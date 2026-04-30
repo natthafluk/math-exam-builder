@@ -44,6 +44,11 @@ export default function AdminPage() {
   const [primaryStats, setPrimaryStats] = useState<PrimaryStats | null>(null);
   const [secondaryStats, setSecondaryStats] = useState<SecondaryStats | null>(null);
 
+  const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
+
   const loadStats = useCallback(() => {
     loadPrimarySchoolStats().then(setPrimaryStats).catch((err) => console.warn("[AdminPage] primary failed:", err));
     loadSecondarySchoolStats().then(setSecondaryStats).catch((err) => console.warn("[AdminPage] secondary failed:", err));
