@@ -21,6 +21,22 @@ type ProfileRow = {
 
 const pool = new Pool(Deno.env.get("SUPABASE_DB_URL") ?? "", 1, true);
 
+const decodeUserId = (token: string) => {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")));
+    const sub = typeof json.sub === "string" ? json.sub : null;
+    const exp = typeof json.exp === "number" ? json.exp : 0;
+    const role = typeof json.role === "string" ? json.role : null;
+    if (!sub || role !== "authenticated" || exp * 1000 < Date.now()) return null;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sub) ? sub : null;
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -31,12 +47,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authorization = req.headers.get("Authorization") ?? "";
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
 
-  if (!supabaseUrl || !serviceRoleKey || !Deno.env.get("SUPABASE_DB_URL")) {
+  if (!Deno.env.get("SUPABASE_DB_URL")) {
     return new Response(JSON.stringify({ error: "Missing backend configuration" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -50,12 +64,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const auth = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { data: authData, error: authError } = await auth.auth.getUser(token);
+  const userId = decodeUserId(token);
 
-  if (authError || !authData.user) {
+  if (!userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -69,7 +80,7 @@ Deno.serve(async (req) => {
        from public.profiles
        where id = $1
        limit 1`,
-      [authData.user.id],
+      [userId],
     );
 
     return new Response(JSON.stringify({ profile: result.rows[0] ?? null }), {
