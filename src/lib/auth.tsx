@@ -42,6 +42,19 @@ const transientProfileError = (message: string) =>
   /schema cache|database client|retrying|recovery mode|connection error|failed to fetch|aborted|timeout|ใช้เวลานาน/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("profile query timeout")), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
+
 // Note: we intentionally do NOT build a fallback profile from JWT metadata.
 // Doing so previously caused admins/super-admins to appear as "teacher" when the DB was slow.
 
@@ -93,16 +106,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(async (uid: string, authUser?: User) => {
     const cached = readCachedProfile(uid);
-    if (cached) setProfile(cached);
-    setProfileStatus({ state: "loading", message: cached ? "กำลังอัปเดตโปรไฟล์อีกครั้ง" : "กำลังโหลดโปรไฟล์" });
+    if (cached) {
+      setProfile(cached);
+      setProfileStatus({ state: "stale", message: "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว" });
+    } else {
+      setProfileStatus({ state: "loading", message: "กำลังโหลดโปรไฟล์" });
+    }
 
     let attempt = 0;
 
     let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
-    while (attempt < 10) {
+    while (attempt < (cached ? 3 : 6)) {
       attempt += 1;
       try {
-        const { data, error } = await profileQuery(uid);
+        const { data, error } = await withTimeout(profileQuery(uid), 4_000);
         if (error) throw new Error(error.message);
         if (!data) {
           setProfile(null);
@@ -117,7 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         lastMessage = e instanceof Error ? e.message : String(e);
         if (!transientProfileError(lastMessage)) break;
-        setProfileStatus({ state: "loading", message: `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}` });
+        setProfileStatus({
+          state: cached ? "stale" : "loading",
+          message: cached ? "ใช้ข้อมูลบัญชีที่โหลดไว้ล่าสุดชั่วคราว" : `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}`,
+        });
         await wait(Math.min(1_500, 300 * attempt));
       }
     }
