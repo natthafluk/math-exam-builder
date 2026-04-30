@@ -88,10 +88,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })));
       }
       if (qRes.data) {
-        // merge: prepend DB questions; keep seed for other pages that reference seed IDs
-        const dbQs = qRes.data.map(mapDbQuestion);
-        const dbIds = new Set(dbQs.map((x) => x.id));
-        setQuestions([...dbQs, ...seedQuestions.filter((s) => !dbIds.has(s.id))]);
+        // DB-only: drop any non-UUID seed/mock data
+        setQuestions(qRes.data.map(mapDbQuestion));
       }
       setIsBackendConnected(true);
     })();
