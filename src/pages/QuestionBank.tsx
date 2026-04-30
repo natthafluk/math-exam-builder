@@ -20,7 +20,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Question, QuestionStatus } from "@/lib/types";
+import type { Question } from "@/lib/types";
 
 const TYPE_LABEL: Record<string, string> = { mcq: "ปรนัย", short: "เติมคำตอบ", tf: "ถูก/ผิด", written: "อัตนัย" };
 const DIFF_LABEL: Record<string, string> = { easy: "ง่าย", medium: "ปานกลาง", hard: "ยาก" };
@@ -71,9 +71,9 @@ export default function QuestionBank() {
   });
   const toggleAll = () => setSelected(selected.size === filtered.length ? new Set() : new Set(filtered.map(x => x.id)));
 
-  const duplicate = (item: Question) => {
-    addQuestion({ ...item, id: `q-${Date.now()}`, title: item.title + " (สำเนา)", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-    toast.success("ทำสำเนาข้อสอบแล้ว");
+  const duplicate = async (item: Question) => {
+    const saved = await addQuestion({ ...item, id: crypto.randomUUID(), title: item.title + " (สำเนา)", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    if (saved) toast.success("ทำสำเนาข้อสอบแล้ว");
   };
 
   return (
