@@ -92,6 +92,52 @@ export default function ExamBuilder() {
     return () => { cancelled = true; };
   }, [profile, refreshQuestions]);
 
+  useEffect(() => {
+    if (!profile || !isEditingDbExam || !id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: examRow, error } = await supabase
+        .from("exams")
+        .select("id, title, description, teacher_id, time_limit_minutes, due_date, show_explanations, status, settings, created_at")
+        .eq("id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !examRow) {
+        toast.error("โหลดชุดข้อสอบไม่สำเร็จ: " + (error?.message ?? "ไม่พบชุดข้อสอบ"));
+        return;
+      }
+
+      const [qRes, aRes] = await Promise.all([
+        supabase.from("exam_questions").select("question_id, sort_order, points").eq("exam_id", id).order("sort_order", { ascending: true }),
+        supabase.from("assignments").select("class_id").eq("exam_id", id),
+      ]);
+      if (cancelled) return;
+      if (qRes.error) toast.error("โหลดรายการข้อสอบในชุดไม่สำเร็จ: " + qRes.error.message);
+
+      const loaded: Exam = {
+        id: examRow.id,
+        title: examRow.title,
+        description: examRow.description ?? "",
+        teacherId: examRow.teacher_id ?? currentUser.id,
+        classIds: ((aRes.data ?? []) as any[]).map((a) => a.class_id),
+        questions: ((qRes.data ?? []) as any[]).map((q, index) => ({
+          questionId: q.question_id,
+          order: q.sort_order ?? index + 1,
+          points: q.points ?? 1,
+        })),
+        timeLimitMinutes: examRow.time_limit_minutes,
+        dueDate: examRow.due_date ? String(examRow.due_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        showExplanations: examRow.show_explanations,
+        status: examRow.status,
+        settings: (examRow.settings as ExamSettings) ?? DEFAULT_SETTINGS,
+        createdAt: examRow.created_at,
+      };
+      setExisting(loaded);
+      setDraft(loaded);
+    })();
+    return () => { cancelled = true; };
+  }, [profile, isEditingDbExam, id, currentUser.id]);
+
   const [step, setStep] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [draft, setDraft] = useState<Exam>(
@@ -116,7 +162,7 @@ export default function ExamBuilder() {
 
   const selectedIds = useMemo(() => new Set(draft.questions.map((q) => q.questionId)), [draft.questions]);
   const totalPoints = draft.questions.reduce((s, q) => s + q.points, 0);
-  const items = draft.questions.map(eq => ({ eq, q: questions.find(q => q.id === eq.questionId)! })).filter(x => x.q);
+  const items = draft.questions.map(eq => ({ eq, q: dbQuestions.find(q => q.id === eq.questionId)! })).filter(x => x.q);
 
   const distribution = useMemo(() => {
     const byTopic: Record<string, number> = {};
@@ -146,7 +192,7 @@ export default function ExamBuilder() {
     set("questions", draft.questions.map((q, i) => (i === idx ? { ...q, points: pts } : q)));
   };
   const generateRandom = () => {
-    const pool = questions.filter((q) =>
+    const pool = dbQuestions.filter((q) =>
       q.status === "published" && q.gradeLevel === randGrade &&
       (randDiff === "all" || q.difficulty === randDiff) && !selectedIds.has(q.id)
     );
