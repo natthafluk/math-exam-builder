@@ -49,18 +49,37 @@ export const setCachedClassStats = (rows: ClassStatsRow[]) => {
   }
 };
 
-// Backward-compat shim — kept so AdminPage's old import doesn't break. Just runs the call once.
+const isTransient = (msg: string) => /schema cache|Database client|Retrying|fetch|network|timeout/i.test(msg ?? "");
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Run a supabase query with up to 3 attempts when the error is a transient schema-cache reload.
+async function runWithRetry<T extends { data: any; error: { message?: string } | null; count?: number | null }>(
+  build: () => PromiseLike<T>,
+  label: string,
+  attempts = 3,
+): Promise<T> {
+  let last: T | null = null;
+  for (let i = 1; i <= attempts; i++) {
+    const res = await build();
+    if (!res.error) return res;
+    last = res;
+    const msg = res.error.message ?? "";
+    console.warn(`[${label}] attempt ${i}/${attempts} failed:`, msg);
+    if (i === attempts || !isTransient(msg)) break;
+    await wait(400 * i); // 400ms, 800ms
+  }
+  return last as T;
+}
+
+// Backward-compat shim for AdminPage.
 export async function retrySupabase<T>(
   fn: (signal: AbortSignal) => PromiseLike<{ data: T | null; error: { message?: string } | null; count?: number | null }>,
   label: string,
   _options?: unknown,
 ) {
   const controller = new AbortController();
-  const result = await fn(controller.signal);
-  if (result.error) {
-    console.warn(`[${label}] failed:`, result.error.message);
-    throw new Error(result.error.message ?? `${label} failed`);
-  }
+  const result = await runWithRetry(() => fn(controller.signal), label);
+  if (result.error) throw new Error(result.error.message ?? `${label} failed`);
   return result;
 }
 
