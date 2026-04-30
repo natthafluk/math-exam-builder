@@ -152,11 +152,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tags: q.tags,
     };
     if (isNew) {
-      const { error } = await supabase.from("questions").insert(payload);
-      if (error) console.warn("Insert question failed:", error.message);
+      const res = await withRetry(() => supabase.from("questions").insert(payload) as any);
+      if (res.error) {
+        console.warn("Insert question failed:", res.error.message);
+        toast.error("บันทึกข้อสอบลงคลังไม่สำเร็จ: " + res.error.message + " — โปรดลองใหม่อีกครั้ง");
+        // Roll the question out of local state so user knows it isn't saved
+        setQuestions((p) => p.filter((x) => x.id !== q.id));
+      } else {
+        toast.success("บันทึกข้อสอบเข้าคลังแล้ว");
+      }
     } else {
-      const { error } = await supabase.from("questions").update(payload).eq("id", q.id);
-      if (error) console.warn("Update question failed:", error.message);
+      const res = await withRetry(() => supabase.from("questions").update(payload).eq("id", q.id) as any);
+      if (res.error) {
+        console.warn("Update question failed:", res.error.message);
+        toast.error("อัปเดตข้อสอบไม่สำเร็จ: " + res.error.message);
+      }
     }
   };
 
