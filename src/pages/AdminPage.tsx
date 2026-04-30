@@ -43,39 +43,10 @@ export default function AdminPage() {
 
   const [primaryStats, setPrimaryStats] = useState<PrimaryStats | null>(null);
   const [secondaryStats, setSecondaryStats] = useState<SecondaryStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
 
-  const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<DbUser | null>(null);
-
-  const loadStats = useCallback(async (force = false) => {
-    setStatsLoading(true);
-    setStatsError(null);
-    loadPrimarySchoolStats(force)
-      .then((nextStats) => {
-        setPrimaryStats(nextStats);
-        setStatsError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
-      })
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error("[AdminPage] load primary stats failed:", error);
-        setStatsError(`โหลดสถิติหลักไม่สำเร็จ: ${message}`);
-      })
-      .finally(() => setStatsLoading(false));
-
-    loadSecondarySchoolStats(force)
-      .then((nextStats) => {
-        setSecondaryStats(nextStats);
-        if (nextStats.errors.length > 0) setStatsError((prev) => [prev, nextStats.errors.join(" / ")].filter(Boolean).join(" / "));
-      })
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error("[AdminPage] load secondary stats failed:", error);
-        setStatsError((prev) => [prev, `โหลดสถิติรองไม่สำเร็จ: ${message}`].filter(Boolean).join(" / "));
-      });
+  const loadStats = useCallback(() => {
+    loadPrimarySchoolStats().then(setPrimaryStats).catch((err) => console.warn("[AdminPage] primary failed:", err));
+    loadSecondarySchoolStats().then(setSecondaryStats).catch((err) => console.warn("[AdminPage] secondary failed:", err));
   }, []);
 
   const loadUsers = useCallback(async () => {
