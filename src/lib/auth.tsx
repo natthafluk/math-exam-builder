@@ -149,12 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.warning("โหลดโปรไฟล์สดไม่สำเร็จชั่วคราว ระบบใช้ข้อมูลบัญชีล่าสุดให้ก่อน");
       return;
     }
-    if (authUser && transientProfileError(lastMessage)) {
-      const fallback = buildFallbackProfile(authUser);
-      setProfile(fallback);
-      setProfileStatus({ state: "stale", message: "เปิดหน้าให้ใช้งานก่อน เพราะฐานข้อมูลตอบกลับช้า" });
-      return;
-    }
+    // Do NOT fabricate a role from session metadata — that caused super admins to appear as "teacher".
+    // If we have no cached profile and the DB is slow, surface a real error so RequireAuth can show retry UI.
     setProfile(null);
     setProfileStatus({ state: "error", message: `โหลดโปรไฟล์ไม่สำเร็จ: ${lastMessage}` });
   }, []);
