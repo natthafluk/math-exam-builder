@@ -66,6 +66,15 @@ const profileQuery = async (uid: string) => {
     .maybeSingle();
 };
 
+const profileFunctionQuery = async (): Promise<Profile | null> => {
+  const { data, error } = await supabase.functions.invoke("fetch-profile", {
+    method: "POST",
+    body: {},
+  });
+  if (error) throw new Error(error.message);
+  return (data?.profile ?? null) as Profile | null;
+};
+
 const readCachedProfile = (uid: string): Profile | null => {
   const memory = profileMemoryCache.get(uid);
   if (memory) return memory;
@@ -119,14 +128,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     while (attempt < (cached ? 3 : 6)) {
       attempt += 1;
       try {
-        const { data, error } = await withTimeout(profileQuery(uid), 4_000);
-        if (error) throw new Error(error.message);
-        if (!data) {
+        let nextProfile: Profile | null = null;
+        try {
+          const { data, error } = await withTimeout(profileQuery(uid), 4_000);
+          if (error) throw new Error(error.message);
+          nextProfile = data as Profile | null;
+        } catch (restError) {
+          lastMessage = restError instanceof Error ? restError.message : String(restError);
+          if (!transientProfileError(lastMessage)) throw restError;
+          nextProfile = await withTimeout(profileFunctionQuery(), 5_000);
+        }
+        if (!nextProfile) {
           setProfile(null);
           setProfileStatus({ state: "missing", message: "ยังไม่พบโปรไฟล์ที่ตรงกับบัญชีนี้" });
           return;
         }
-        const nextProfile = data as Profile;
         setProfile(nextProfile);
         writeCachedProfile(nextProfile);
         setProfileStatus({ state: "ok", message: "โหลดโปรไฟล์สำเร็จ" });
