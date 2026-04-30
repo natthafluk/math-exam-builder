@@ -5,6 +5,22 @@ import {
 } from "./seed";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
+import { toast } from "sonner";
+
+const isTransient = (msg: string) =>
+  /schema cache|recovery mode|connection|timeout|fetch|temporarily|503|PGRST002/i.test(msg);
+
+async function withRetry<T>(fn: () => Promise<{ error: any; data?: T }>, attempts = 4) {
+  let lastErr: any = null;
+  for (let i = 0; i < attempts; i++) {
+    const res = await fn();
+    if (!res.error) return res;
+    lastErr = res.error;
+    if (!isTransient(res.error.message ?? String(res.error))) return res;
+    await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+  }
+  return { error: lastErr } as any;
+}
 
 interface StoreCtx {
   currentUser: User;
@@ -136,11 +152,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tags: q.tags,
     };
     if (isNew) {
-      const { error } = await supabase.from("questions").insert(payload);
-      if (error) console.warn("Insert question failed:", error.message);
+      const res = await withRetry(() => supabase.from("questions").insert(payload) as any);
+      if (res.error) {
+        console.warn("Insert question failed:", res.error.message);
+        toast.error("บันทึกข้อสอบลงคลังไม่สำเร็จ: " + res.error.message + " — โปรดลองใหม่อีกครั้ง");
+        // Roll the question out of local state so user knows it isn't saved
+        setQuestions((p) => p.filter((x) => x.id !== q.id));
+      } else {
+        toast.success("บันทึกข้อสอบเข้าคลังแล้ว");
+      }
     } else {
-      const { error } = await supabase.from("questions").update(payload).eq("id", q.id);
-      if (error) console.warn("Update question failed:", error.message);
+      const res = await withRetry(() => supabase.from("questions").update(payload).eq("id", q.id) as any);
+      if (res.error) {
+        console.warn("Update question failed:", res.error.message);
+        toast.error("อัปเดตข้อสอบไม่สำเร็จ: " + res.error.message);
+      }
     }
   };
 
