@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
@@ -27,7 +27,7 @@ const DIFF_LABEL: Record<string, string> = { easy: "ง่าย", medium: "ป�
 
 export default function QuestionBank() {
   const navigate = useNavigate();
-  const { questions, topics, currentUser, addQuestion, bulkUpdateQuestionStatus, logAudit } = useStore();
+  const { questions, topics, currentUser, addQuestion, bulkUpdateQuestionStatus, logAudit, refreshQuestions } = useStore();
   const [tab, setTab] = useState<"mine" | "bank">("mine");
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("all");
@@ -36,6 +36,10 @@ export default function QuestionBank() {
   const [type, setType] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<null | { kind: "archive"; ids: string[] }>(null);
+
+  useEffect(() => {
+    refreshQuestions("QuestionBank load");
+  }, [refreshQuestions]);
 
   const scoped = useMemo(() => questions.filter((x) => {
     if (tab === "mine") return x.authorId === currentUser.id;
