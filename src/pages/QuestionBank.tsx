@@ -27,36 +27,40 @@ const DIFF_LABEL: Record<string, string> = { easy: "ง่าย", medium: "ป�
 
 export default function QuestionBank() {
   const navigate = useNavigate();
-  const { questions, topics, addQuestion, updateQuestion, bulkUpdateQuestionStatus, logAudit } = useStore();
+  const { questions, topics, currentUser, addQuestion, bulkUpdateQuestionStatus, logAudit } = useStore();
+  const [tab, setTab] = useState<"mine" | "bank">("mine");
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("all");
   const [topic, setTopic] = useState("all");
   const [diff, setDiff] = useState("all");
   const [type, setType] = useState("all");
-  const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<null | { kind: "archive"; ids: string[] }>(null);
 
-  const filtered = useMemo(() => questions.filter((x) => {
+  const scoped = useMemo(() => questions.filter((x) => {
+    if (tab === "mine") return x.authorId === currentUser.id;
+    // bank: published, authored by others
+    return x.authorId !== currentUser.id && x.status === "published";
+  }), [questions, tab, currentUser.id]);
+
+  const filtered = useMemo(() => scoped.filter((x) => {
     if (q && !(`${x.title} ${x.body} ${x.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase()))) return false;
     if (grade !== "all" && x.gradeLevel !== grade) return false;
     if (topic !== "all" && x.topicId !== topic) return false;
     if (diff !== "all" && x.difficulty !== diff) return false;
     if (type !== "all" && x.type !== type) return false;
-    if (status !== "all" && x.status !== status) return false;
     return true;
-  }), [questions, q, grade, topic, diff, type, status]);
+  }), [scoped, q, grade, topic, diff, type]);
 
   const activeChips = [
     grade !== "all" && { k: "grade", label: `ระดับ: ${grade}`, clear: () => setGrade("all") },
     topic !== "all" && { k: "topic", label: `หัวข้อ: ${topics.find(t => t.id === topic)?.title}`, clear: () => setTopic("all") },
     diff !== "all" && { k: "diff", label: `ยาก: ${DIFF_LABEL[diff]}`, clear: () => setDiff("all") },
     type !== "all" && { k: "type", label: `ประเภท: ${TYPE_LABEL[type]}`, clear: () => setType("all") },
-    status !== "all" && { k: "status", label: `สถานะ: ${STATUS_LABEL[status]}`, clear: () => setStatus("all") },
     q && { k: "q", label: `ค้นหา: "${q}"`, clear: () => setQ("") },
   ].filter(Boolean) as { k: string; label: string; clear: () => void }[];
 
-  const clearAll = () => { setQ(""); setGrade("all"); setTopic("all"); setDiff("all"); setType("all"); setStatus("all"); };
+  const clearAll = () => { setQ(""); setGrade("all"); setTopic("all"); setDiff("all"); setType("all"); };
 
   const toggle = (id: string) => setSelected((s) => {
     const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -66,20 +70,6 @@ export default function QuestionBank() {
   const duplicate = (item: Question) => {
     addQuestion({ ...item, id: `q-${Date.now()}`, title: item.title + " (สำเนา)", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     toast.success("ทำสำเนาข้อสอบแล้ว");
-  };
-
-  const sendForReview = (item: Question) => {
-    updateQuestion({ ...item, status: "review", updatedAt: new Date().toISOString() });
-    logAudit({ action: "ส่งข้อสอบให้ตรวจ", target: item.title, tone: "warning" });
-    toast.success("ส่งข้อสอบเข้าคิวรออนุมัติแล้ว");
-  };
-
-  const bulkChangeStatus = (s: QuestionStatus) => {
-    if (selected.size === 0) return;
-    bulkUpdateQuestionStatus(Array.from(selected), s);
-    logAudit({ action: `เปลี่ยนสถานะ ${selected.size} ข้อ → ${STATUS_LABEL[s]}`, tone: s === "archived" ? "warning" : "default" });
-    toast.success(`ปรับสถานะ ${selected.size} ข้อแล้ว`);
-    setSelected(new Set());
   };
 
   return (
