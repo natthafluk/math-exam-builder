@@ -40,55 +40,63 @@ export function AppLayout({ children, title, actions, breadcrumbs }: {
           </Button>
         </div>
 
-        <header className="h-16 border-b border-border bg-card/70 backdrop-blur flex items-center gap-3 px-4 md:px-6">
-          <div className="flex-1 min-w-0">
-            {breadcrumbs && breadcrumbs.length > 0 && (
-              <nav aria-label="breadcrumb" className="hidden md:flex items-center text-xs text-muted-foreground gap-1 mb-0.5">
-                {breadcrumbs.map((c, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    {i > 0 && <ChevronRight className="w-3 h-3" />}
-                    {c.to ? <Link to={c.to} className="hover:text-foreground">{c.label}</Link> : <span>{c.label}</span>}
-                  </span>
-                ))}
-              </nav>
-            )}
-            {title && <h1 className="text-base md:text-lg font-semibold truncate">{title}</h1>}
-          </div>
-          <div className="hidden lg:flex items-center gap-2 max-w-xs flex-1">
-            <div className="relative w-full">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="ค้นหาเร็ว..." className="pl-8 h-9 bg-muted/50 border-transparent" />
+        <header className="border-b border-border bg-card/70 backdrop-blur px-4 md:px-6 py-3">
+          <div className="flex items-start gap-3 flex-wrap">
+            <div className="flex-1 min-w-0 order-1">
+              {breadcrumbs && breadcrumbs.length > 0 && (
+                <nav aria-label="breadcrumb" className="hidden md:flex items-center text-xs text-muted-foreground gap-1 mb-0.5 flex-wrap">
+                  {breadcrumbs.map((c, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                      {i > 0 && <ChevronRight className="w-3 h-3" />}
+                      {c.to ? <Link to={c.to} className="hover:text-foreground">{c.label}</Link> : <span>{c.label}</span>}
+                    </span>
+                  ))}
+                </nav>
+              )}
+              {title && <h1 className="text-base md:text-lg font-semibold truncate">{title}</h1>}
             </div>
-          </div>
-          <div className="flex items-center gap-1.5">{actions}</div>
-          <button className="relative p-2 rounded-md hover:bg-muted transition-colors hidden sm:inline-flex" aria-label="การแจ้งเตือน">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent" />
-          </button>
-          <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-border">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2.5 hover:bg-muted rounded-md p-1 pr-2 transition-colors" aria-label="เมนูผู้ใช้">
-                  <div className={`w-8 h-8 rounded-full ${currentUser.avatarColor ?? "bg-primary"} text-white flex items-center justify-center text-xs font-semibold`}>
-                    {currentUser.name.slice(0, 1)}
-                  </div>
-                  <div className="hidden md:block leading-tight text-left">
-                    <div className="text-sm font-medium">{currentUser.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{roleLabel[currentUser.role]}</div>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="font-medium">{currentUser.name}</div>
-                  <div className="text-xs text-muted-foreground font-normal">{currentUser.email}</div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                  <LogOut className="w-4 h-4 mr-2" /> ออกจากระบบ
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="hidden xl:flex items-center gap-2 w-64 order-2">
+              <div className="relative w-full">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="ค้นหาเร็ว..." className="pl-8 h-9 bg-muted/50 border-transparent" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 order-4 sm:order-3 ml-auto sm:ml-0">
+              <button className="relative p-2 rounded-md hover:bg-muted transition-colors hidden sm:inline-flex" aria-label="การแจ้งเตือน">
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent" />
+              </button>
+              <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-border">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2.5 hover:bg-muted rounded-md p-1 pr-2 transition-colors" aria-label="เมนูผู้ใช้">
+                      <div className={`w-8 h-8 rounded-full ${currentUser.avatarColor ?? "bg-primary"} text-white flex items-center justify-center text-xs font-semibold`}>
+                        {currentUser.name.slice(0, 1)}
+                      </div>
+                      <div className="hidden md:block leading-tight text-left">
+                        <div className="text-sm font-medium">{currentUser.name}</div>
+                        <div className="text-[11px] text-muted-foreground">{roleLabel[currentUser.role]}</div>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="font-medium">{currentUser.name}</div>
+                      <div className="text-xs text-muted-foreground font-normal">{currentUser.email}</div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                      <LogOut className="w-4 h-4 mr-2" /> ออกจากระบบ
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+            {actions && (
+              <div className="flex items-center gap-1.5 flex-wrap order-3 sm:order-4 w-full sm:w-auto justify-end">
+                {actions}
+              </div>
+            )}
           </div>
         </header>
         <main className="flex-1 overflow-x-hidden">

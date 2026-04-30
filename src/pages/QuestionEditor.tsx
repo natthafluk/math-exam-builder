@@ -11,7 +11,7 @@ import { MathRender } from "@/components/MathRender";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ArrowLeft, Save, CheckCircle2, Circle, Send } from "lucide-react";
+import { Trash2, Plus, ArrowLeft, Save, CheckCircle2, Circle, Lock, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { validateMath } from "@/lib/mathValidate";
 import type { Choice, Difficulty, Question, QuestionStatus, QuestionType } from "@/lib/types";
@@ -68,8 +68,8 @@ export default function QuestionEditor() {
       updatedAt: new Date().toISOString(),
     };
     existing ? updateQuestion(next) : addQuestion(next);
-    if (status === "review") logAudit({ action: "ส่งข้อสอบให้ตรวจ", target: next.title, tone: "warning" });
-    if (status === "published") logAudit({ action: existing ? "อัปเดตข้อสอบ" : "เผยแพร่ข้อสอบใหม่", target: next.title, tone: "success" });
+    if (status === "draft") logAudit({ action: existing ? "บันทึกข้อสอบส่วนตัว" : "สร้างข้อสอบส่วนตัว", target: next.title, tone: "default" });
+    if (status === "published") logAudit({ action: existing ? "อัปเดตข้อสอบในคลัง" : "ส่งข้อสอบเข้าคลัง", target: next.title, tone: "success" });
     toast.success(existing ? "บันทึกการแก้ไขแล้ว" : "เพิ่มข้อใหม่เข้าคลังแล้ว");
     navigate("/questions");
   };
@@ -87,12 +87,13 @@ export default function QuestionEditor() {
         { label: existing ? "แก้ไข" : "สร้างใหม่" },
       ]}
       actions={
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 justify-end">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> ย้อนกลับ</Button>
-          <Button variant="secondary" size="sm" onClick={() => save("draft")}>บันทึกร่าง</Button>
-          <Button variant="outline" size="sm" onClick={() => save("review")} className="gap-1.5"><Send className="w-3.5 h-3.5" /> ส่งตรวจ</Button>
-          <Button size="sm" onClick={() => save("published")} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนเผยแพร่" : undefined}>
-            <Save className="w-4 h-4" /> เผยแพร่
+          <Button variant="secondary" size="sm" onClick={() => save("draft")} className="gap-1.5" title="เก็บไว้ดูคนเดียว ไม่เข้าคลังกลาง">
+            <Lock className="w-3.5 h-3.5" /> เก็บส่วนตัว
+          </Button>
+          <Button size="sm" onClick={() => save("published")} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนส่งเข้าคลัง" : "ส่งเข้าคลังกลางให้ครูคนอื่นใช้ได้"}>
+            <Globe className="w-4 h-4" /> ส่งเข้าคลัง
           </Button>
         </div>
       }
