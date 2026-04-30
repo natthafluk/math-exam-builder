@@ -36,13 +36,41 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | null>(null);
 
 const PROFILE_COLUMNS = "id, full_name, email, role, avatar_initials, avatar_color, approval_status, is_super_admin, requested_role";
+const PROFILE_CACHE_KEY = "mathbank.profile.";
 const profileMemoryCache = new Map<string, Profile>();
 const transientProfileError = (message: string) =>
-  /schema cache|database client|retrying/i.test(message);
+  /schema cache|database client|retrying|recovery mode|connection error|failed to fetch|aborted|timeout|ใช้เวลานาน/i.test(message);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-const readCachedProfile = (uid: string): Profile | null => profileMemoryCache.get(uid) ?? null;
-const writeCachedProfile = (profile: Profile) => profileMemoryCache.set(profile.id, profile);
+const readCachedProfile = (uid: string): Profile | null => {
+  const memory = profileMemoryCache.get(uid);
+  if (memory) return memory;
+  try {
+    const stored = window.localStorage.getItem(PROFILE_CACHE_KEY + uid);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as Profile;
+    if (parsed?.id !== uid) return null;
+    profileMemoryCache.set(uid, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedProfile = (profile: Profile) => {
+  profileMemoryCache.set(profile.id, profile);
+  try {
+    window.localStorage.setItem(PROFILE_CACHE_KEY + profile.id, JSON.stringify(profile));
+  } catch {
+    // Storage may be unavailable in private browsing; memory cache is still enough for this session.
+  }
+};
+
+const clearCachedProfile = (uid?: string) => {
+  if (!uid) return;
+  profileMemoryCache.delete(uid);
+  try { window.localStorage.removeItem(PROFILE_CACHE_KEY + uid); } catch { /* noop */ }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
