@@ -94,10 +94,16 @@ export default function QuestionEditor() {
       actions={
         <div className="flex flex-wrap gap-1.5 justify-end">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> ย้อนกลับ</Button>
-          <Button variant="secondary" size="sm" onClick={() => save("draft")} className="gap-1.5" title="เก็บไว้ดูคนเดียว ไม่เข้าคลังกลาง">
+          <Button variant="secondary" size="sm" onClick={() => {
+            if (!draft.title.trim() || !draft.body.trim()) { toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์"); return; }
+            setConfirmAction("draft");
+          }} className="gap-1.5" title="เก็บไว้ดูคนเดียว ไม่เข้าคลังกลาง">
             <Lock className="w-3.5 h-3.5" /> เก็บส่วนตัว
           </Button>
-          <Button size="sm" onClick={() => save("published")} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนส่งเข้าคลัง" : "ส่งเข้าคลังกลางให้ครูคนอื่นใช้ได้"}>
+          <Button size="sm" onClick={() => {
+            if (!draft.title.trim() || !draft.body.trim()) { toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์"); return; }
+            setConfirmAction("published");
+          }} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนส่งเข้าคลัง" : "ส่งเข้าคลังกลางให้ครูคนอื่นใช้ได้"}>
             <Globe className="w-4 h-4" /> ส่งเข้าคลัง
           </Button>
         </div>
