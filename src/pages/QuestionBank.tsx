@@ -87,6 +87,13 @@ export default function QuestionBank() {
         </div>
       }
     >
+      <Tabs value={tab} onValueChange={(v) => { setTab(v as "mine" | "bank"); setSelected(new Set()); }} className="mb-3">
+        <TabsList>
+          <TabsTrigger value="mine">ข้อสอบของฉัน</TabsTrigger>
+          <TabsTrigger value="bank">คลังกลาง</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <Card className="p-4 mb-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
@@ -99,7 +106,6 @@ export default function QuestionBank() {
             <SmallSelect value={topic} onChange={setTopic} options={[["all", "ทุกหัวข้อ"], ...topics.map(t => [t.id, t.title] as [string, string])]} />
             <SmallSelect value={diff} onChange={setDiff} options={[["all", "ทุกระดับยาก"], ["easy", "ง่าย"], ["medium", "ปานกลาง"], ["hard", "ยาก"]]} />
             <SmallSelect value={type} onChange={setType} options={[["all", "ทุกประเภท"], ["mcq", "ปรนัย"], ["short", "เติมคำตอบ"], ["tf", "ถูก/ผิด"], ["written", "อัตนัย"]]} />
-            <SmallSelect value={status} onChange={setStatus} options={[["all", "ทุกสถานะ"], ["published", "เผยแพร่"], ["draft", "ฉบับร่าง"], ["review", "รออนุมัติ"], ["archived", "เก็บถาวร"]]} />
           </div>
         </div>
         {activeChips.length > 0 && (
@@ -119,8 +125,6 @@ export default function QuestionBank() {
         <div className="text-sm text-muted-foreground">พบ {filtered.length} ข้อ • เลือก {selected.size}</div>
         {selected.size > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="outline" onClick={() => bulkChangeStatus("review")} className="gap-1"><Send className="w-3.5 h-3.5" /> ส่งตรวจ</Button>
-            <Button size="sm" variant="outline" onClick={() => bulkChangeStatus("published")} className="gap-1"><CheckCheck className="w-3.5 h-3.5" /> เผยแพร่</Button>
             <Button size="sm" variant="outline" onClick={() => setConfirm({ kind: "archive", ids: Array.from(selected) })} className="gap-1"><Archive className="w-3.5 h-3.5" /> เก็บถาวร</Button>
             <Button size="sm" variant="ghost" onClick={() => {
               const csv = filtered.filter(x => selected.has(x.id)).map(x => `${x.id},"${x.title}",${x.gradeLevel},${x.difficulty}`).join("\n");
