@@ -184,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const applySession = (s: Session | null) => {
       if (!mounted) return;
+      console.info("[auth] session applied:", { userId: s?.user?.id, email: s?.user?.email, hasToken: !!s?.access_token });
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
@@ -200,7 +201,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      console.info("[auth] onAuthStateChange:", event, { userId: s?.user?.id });
       setTimeout(() => applySession(s), 0);
     });
 
