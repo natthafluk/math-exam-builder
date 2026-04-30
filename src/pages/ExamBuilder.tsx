@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,11 +35,40 @@ const DEFAULT_SETTINGS: ExamSettings = {
   showExplanationsAfterClose: true,
 };
 
+interface DbClass { id: string; name: string; grade_level: string; teacher_id: string | null; student_count: number }
+
 export default function ExamBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { exams, questions, classes, topics, currentUser, addExam, updateExam, logAudit } = useStore();
+  const { profile } = useAuth();
+  const { exams, questions, topics, currentUser, addExam, updateExam, logAudit } = useStore();
   const existing = id && id !== "new" ? exams.find((e) => e.id === id) : undefined;
+
+  // Real classes from DB (filtered by RPC to current teacher / admin)
+  const [classes, setClasses] = useState<DbClass[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      setClassesLoading(true);
+      const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
+      if (cancelled) return;
+      if (error) {
+        console.warn("[ExamBuilder] load classes failed:", error.message);
+        toast.error("โหลดห้องเรียนไม่สำเร็จ: " + error.message);
+        setClasses([]);
+      } else {
+        setClasses((data ?? []).map((c: any) => ({
+          id: c.id, name: c.name, grade_level: c.grade_level,
+          teacher_id: c.teacher_id, student_count: c.student_count ?? 0,
+        })));
+      }
+      setClassesLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile]);
 
   const [step, setStep] = useState(0);
   const [confirm, setConfirm] = useState(false);
@@ -104,20 +135,84 @@ export default function ExamBuilder() {
     toast.success(`สุ่มเพิ่ม ${picked.length} ข้อแล้ว`);
   };
 
-  const saveDraft = () => {
+  const [busy, setBusy] = useState(false);
+
+  // Persist exam + exam_questions to backend. Returns the saved exam id (UUID).
+  const persistExam = async (status: "draft" | "assigned"): Promise<string | null> => {
+    if (!profile) { toast.error("ยังไม่ได้เข้าสู่ระบบ"); return null; }
+    // Only send UUID-shaped question ids (skip seed mock IDs)
+    const validQs = draft.questions.filter((q) => /^[0-9a-f]{8}-/i.test(q.questionId));
+    if (status === "assigned" && validQs.length === 0) {
+      toast.error("ต้องมีข้อสอบจริงในคลัง (UUID) อย่างน้อย 1 ข้อก่อนมอบหมาย");
+      return null;
+    }
+    const isExistingDb = existing && /^[0-9a-f]{8}-/i.test(existing.id);
+    const examId = isExistingDb ? existing!.id : crypto.randomUUID();
+    const examRow = {
+      id: examId,
+      title: draft.title.trim(),
+      description: draft.description ?? "",
+      teacher_id: profile.id,
+      time_limit_minutes: draft.timeLimitMinutes,
+      due_date: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
+      show_explanations: draft.showExplanations,
+      status,
+      settings: draft.settings ?? {},
+    };
+    const upsert = await supabase.from("exams").upsert(examRow);
+    if (upsert.error) { toast.error("บันทึกข้อสอบไม่สำเร็จ: " + upsert.error.message); return null; }
+
+    // Replace exam_questions: delete existing, insert fresh
+    await supabase.from("exam_questions").delete().eq("exam_id", examId);
+    if (validQs.length) {
+      const rows = validQs.map((q, i) => ({
+        exam_id: examId, question_id: q.questionId,
+        sort_order: q.order ?? i + 1, points: q.points ?? 1,
+      }));
+      const ins = await supabase.from("exam_questions").insert(rows);
+      if (ins.error) { toast.error("บันทึกรายการข้อสอบไม่สำเร็จ: " + ins.error.message); return null; }
+    }
+    return examId;
+  };
+
+  const saveDraft = async () => {
     if (!draft.title.trim()) { toast.error("กรุณาตั้งชื่อชุดข้อสอบ"); return; }
-    existing ? updateExam(draft) : addExam(draft);
+    setBusy(true);
+    const examId = await persistExam("draft");
+    setBusy(false);
+    if (!examId) return;
+    const next = { ...draft, id: examId, status: "draft" as const, teacherId: profile?.id ?? draft.teacherId };
+    existing ? updateExam(next) : addExam(next);
     toast.success("บันทึกชุดข้อสอบแล้ว");
     navigate("/exams");
   };
-  const assign = () => {
+
+  const assign = async () => {
     if (!draft.classIds.length) { toast.error("กรุณาเลือกห้องเรียนอย่างน้อย 1 ห้อง"); setStep(3); return; }
-    const next = { ...draft, status: "assigned" as const };
+    setBusy(true);
+    const examId = await persistExam("assigned");
+    if (!examId) { setBusy(false); return; }
+
+    // Create assignments per class (idempotent: skip duplicates)
+    const dueIso = draft.dueDate ? new Date(draft.dueDate).toISOString() : null;
+    const { data: existingAss } = await supabase.from("assignments").select("class_id").eq("exam_id", examId);
+    const existingClassIds = new Set((existingAss ?? []).map((r: any) => r.class_id));
+    const newRows = draft.classIds
+      .filter((cid) => !existingClassIds.has(cid))
+      .map((cid) => ({ exam_id: examId, class_id: cid, due_date: dueIso, status: "open" as const }));
+    if (newRows.length) {
+      const insAss = await supabase.from("assignments").insert(newRows);
+      if (insAss.error) { setBusy(false); toast.error("มอบหมายไม่สำเร็จ: " + insAss.error.message); return; }
+    }
+    setBusy(false);
+
+    const next = { ...draft, id: examId, status: "assigned" as const, teacherId: profile?.id ?? draft.teacherId };
     existing ? updateExam(next) : addExam(next);
     logAudit({ action: "มอบหมายชุดข้อสอบ", target: `${next.title} → ${classes.filter(c => next.classIds.includes(c.id)).map(c => c.name).join(", ")}`, tone: "success" });
     toast.success("มอบหมายข้อสอบให้นักเรียนแล้ว");
     navigate("/exams");
   };
+
 
   const canNext = () => {
     if (step === 0) return draft.title.trim().length > 0;
@@ -130,7 +225,7 @@ export default function ExamBuilder() {
       title={existing ? "แก้ไขชุดข้อสอบ" : "สร้างชุดข้อสอบ"}
       breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ชุดข้อสอบ", to: "/exams" }, { label: existing ? "แก้ไข" : "สร้างใหม่" }]}
       actions={
-        <Button variant="outline" size="sm" onClick={saveDraft} className="gap-1.5"><Save className="w-4 h-4" /> บันทึกร่าง</Button>
+        <Button variant="outline" size="sm" onClick={saveDraft} disabled={busy} className="gap-1.5"><Save className="w-4 h-4" /> บันทึกร่าง</Button>
       }
     >
       <Stepper current={step} onJump={(i) => setStep(i)} />
@@ -286,22 +381,28 @@ export default function ExamBuilder() {
         {step === 3 && (
           <Card className="p-5 max-w-2xl">
             <h3 className="font-semibold mb-3">เลือกห้องเรียนที่จะมอบหมาย</h3>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {classes.map((c) => {
-                const checked = draft.classIds.includes(c.id);
-                return (
-                  <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${checked ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}>
-                    <Checkbox checked={checked} onCheckedChange={(v) => set("classIds", v ? [...draft.classIds, c.id] : draft.classIds.filter((x) => x !== c.id))} />
-                    <div>
-                      <div className="text-sm font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.studentIds.length} คน</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
+            {classesLoading ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">กำลังโหลดห้องเรียน...</div>
+            ) : classes.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">ยังไม่มีห้องเรียนของคุณ — กรุณาสร้างห้องเรียนก่อน</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {classes.map((c) => {
+                  const checked = draft.classIds.includes(c.id);
+                  return (
+                    <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${checked ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}>
+                      <Checkbox checked={checked} onCheckedChange={(v) => set("classIds", v ? [...draft.classIds, c.id] : draft.classIds.filter((x) => x !== c.id))} />
+                      <div>
+                        <div className="text-sm font-medium">{c.name} <span className="text-xs text-muted-foreground font-normal">({c.grade_level})</span></div>
+                        <div className="text-xs text-muted-foreground">{c.student_count} คน</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-5 p-3 rounded-md bg-muted/50 text-sm">
-              จะส่งให้ <strong>{classes.filter(c => draft.classIds.includes(c.id)).reduce((s, c) => s + c.studentIds.length, 0)}</strong> คน
+              จะส่งให้ <strong>{classes.filter(c => draft.classIds.includes(c.id)).reduce((s, c) => s + (c.student_count ?? 0), 0)}</strong> คน
               ในห้อง {classes.filter(c => draft.classIds.includes(c.id)).map(c => c.name).join(", ") || "—"}
             </div>
           </Card>
@@ -317,7 +418,7 @@ export default function ExamBuilder() {
             ถัดไป <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button onClick={() => setConfirm(true)} className="gap-1.5"><Check className="w-4 h-4" /> มอบหมายข้อสอบ</Button>
+          <Button onClick={() => setConfirm(true)} disabled={busy} className="gap-1.5"><Check className="w-4 h-4" /> มอบหมายข้อสอบ</Button>
         )}
       </div>
 
