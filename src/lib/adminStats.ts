@@ -141,11 +141,11 @@ export async function loadSecondarySchoolStats(force = false): Promise<Secondary
 
   secondaryPromise = (async (): Promise<SecondaryStats> => {
     const [qRes, eRes, aRes, scoresRes, recentRes] = await Promise.allSettled([
-      supabase.from("questions").select("*", { count: "exact", head: true }),
-      supabase.from("exams").select("*", { count: "exact", head: true }),
-      supabase.from("attempts").select("*", { count: "exact", head: true }),
-      supabase.from("attempts").select("score, max_score").eq("status", "submitted"),
-      supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
+      runWithRetry(() => supabase.from("questions").select("*", { count: "exact", head: true }), "stats_questions"),
+      runWithRetry(() => supabase.from("exams").select("*", { count: "exact", head: true }), "stats_exams"),
+      runWithRetry(() => supabase.from("attempts").select("*", { count: "exact", head: true }), "stats_attempts"),
+      runWithRetry(() => supabase.from("attempts").select("score, max_score").eq("status", "submitted"), "stats_scores"),
+      runWithRetry(() => supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5), "stats_recent"),
     ]);
 
     const errors: string[] = [];
