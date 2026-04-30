@@ -154,7 +154,6 @@ export default function QuestionBank() {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 mb-1">
                     <h3 className="font-semibold">{item.title}</h3>
-                    <span className={`chip ${STATUS_TONE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
                     <span className="chip bg-primary-soft text-primary">{item.gradeLevel}</span>
                     <span className="chip bg-muted text-muted-foreground">{topicName}</span>
                     <span className="chip bg-accent-soft text-accent">{DIFF_LABEL[item.difficulty]}</span>
