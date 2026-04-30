@@ -53,10 +53,16 @@ function Stat({ icon: Icon, label, value, hint, tone = "primary" }: any) {
 function AdminDash() {
   const [primaryStats, setPrimaryStats] = useState<PrimaryStats | null>(null);
   const [secondaryStats, setSecondaryStats] = useState<SecondaryStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const refreshStats = useCallback(() => {
-    loadPrimarySchoolStats().then(setPrimaryStats).catch((err) => console.warn("[AdminDash] primary failed:", err));
-    loadSecondarySchoolStats().then(setSecondaryStats).catch((err) => console.warn("[AdminDash] secondary failed:", err));
+    setStatsError(null);
+    loadPrimarySchoolStats()
+      .then((d) => { setPrimaryStats(d); console.info("[AdminDash] primary:", d); if (d.errors.length) setStatsError(d.errors.join(" • ")); })
+      .catch((err) => { console.error("[AdminDash] primary failed:", err); setStatsError(err?.message ?? String(err)); });
+    loadSecondarySchoolStats()
+      .then((d) => { setSecondaryStats(d); console.info("[AdminDash] secondary:", d); if (d.errors.length) setStatsError((prev) => [prev, d.errors.join(" • ")].filter(Boolean).join(" • ")); })
+      .catch((err) => { console.error("[AdminDash] secondary failed:", err); setStatsError((prev) => [prev, err?.message ?? String(err)].filter(Boolean).join(" • ")); });
   }, []);
 
   useEffect(() => { refreshStats(); }, [refreshStats]);
@@ -64,6 +70,7 @@ function AdminDash() {
   const p = primaryStats;
   const s = secondaryStats;
   const recentExams = s?.recentExams ?? [];
+  const isEmpty = (p?.totalUsers ?? 0) === 0 && (s?.questions ?? 0) === 0 && (s?.exams ?? 0) === 0 && (s?.attempts ?? 0) === 0;
 
   return (
     <AppLayout
@@ -74,6 +81,16 @@ function AdminDash() {
         </Button>
       }
     >
+      {statsError && (
+        <Card className="p-4 mb-4 border-destructive/40 bg-destructive/5 text-sm text-destructive">
+          โหลดข้อมูลบางส่วนไม่สำเร็จ: {statsError}
+        </Card>
+      )}
+      {!statsError && isEmpty && primaryStats && secondaryStats && (
+        <Card className="p-4 mb-4 text-sm text-muted-foreground">
+          ยังไม่มีข้อมูลในระบบ — เริ่มต้นโดยการสร้างห้องเรียน เพิ่มข้อสอบ หรือเชิญครู/นักเรียน
+        </Card>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={p?.totalUsers ?? 0} hint="ผู้ดูแล + ครู + นักเรียน" />
         <Stat icon={BookOpen} label="ข้อสอบในคลัง" value={s?.questions ?? 0} tone="accent" />
