@@ -45,19 +45,12 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
 // Note: we intentionally do NOT build a fallback profile from JWT metadata.
 // Doing so previously caused admins/super-admins to appear as "teacher" when the DB was slow.
 
-const profileQueryWithTimeout = async (uid: string, timeoutMs = 1600) => {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await supabase
-      .from("profiles")
-      .select(PROFILE_COLUMNS)
-      .eq("id", uid)
-      .abortSignal(controller.signal)
-      .maybeSingle();
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
+const profileQuery = async (uid: string) => {
+  return await supabase
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .eq("id", uid)
+    .maybeSingle();
 };
 
 const readCachedProfile = (uid: string): Profile | null => {
@@ -103,14 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cached) setProfile(cached);
     setProfileStatus({ state: "loading", message: cached ? "กำลังอัปเดตโปรไฟล์อีกครั้ง" : "กำลังโหลดโปรไฟล์" });
 
-    const deadline = Date.now() + (cached ? 2_500 : 4_500);
     let attempt = 0;
 
     let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
-    while (Date.now() < deadline) {
+    while (attempt < 10) {
       attempt += 1;
       try {
-        const { data, error } = await profileQueryWithTimeout(uid, cached ? 1200 : 1600);
+        const { data, error } = await profileQuery(uid);
         if (error) throw new Error(error.message);
         if (!data) {
           setProfile(null);
@@ -126,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastMessage = e instanceof Error ? e.message : String(e);
         if (!transientProfileError(lastMessage)) break;
         setProfileStatus({ state: "loading", message: `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}` });
-        await wait(Math.min(700, 250 * attempt));
+        await wait(Math.min(1_500, 300 * attempt));
       }
     }
 
