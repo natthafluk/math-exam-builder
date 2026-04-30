@@ -58,12 +58,53 @@ export async function retrySupabase<T>(
   return result;
 }
 
+// Try the RPC first (bypasses PostgREST schema cache issues), fall back to direct queries.
+async function loadStatsViaRpc(): Promise<{ primary: PrimaryStats; secondary: SecondaryStats } | null> {
+  const { data, error } = await supabase.rpc("admin_dashboard_summary");
+  if (error) {
+    console.warn("[adminStats] RPC admin_dashboard_summary failed:", error.message, error);
+    return null;
+  }
+  if (!data) return null;
+  const d = data as any;
+  console.info("[adminStats] RPC summary:", d);
+  return {
+    primary: {
+      admins: d.admins ?? 0,
+      teachers: d.teachers ?? 0,
+      students: d.students ?? 0,
+      classes: d.classes ?? 0,
+      totalUsers: d.totalUsers ?? 0,
+      errors: [],
+    },
+    secondary: {
+      questions: d.questions ?? 0,
+      exams: d.exams ?? 0,
+      attempts: d.attempts ?? 0,
+      avgScore: d.avgScore ?? 0,
+      recentExams: Array.isArray(d.recentExams) ? d.recentExams : [],
+      errors: [],
+    },
+  };
+}
+
 export async function loadPrimarySchoolStats(_force = false): Promise<PrimaryStats> {
+  const rpc = await loadStatsViaRpc();
+  if (rpc) {
+    primaryCache = rpc.primary;
+    secondaryCache = rpc.secondary;
+    return rpc.primary;
+  }
+
   const [profilesRes, classesRes, studentsRes] = await Promise.all([
     supabase.from("profiles").select("role, approval_status"),
     supabase.from("classes").select("*", { count: "exact", head: true }),
     supabase.from("class_students").select("*", { count: "exact", head: true }),
   ]);
+
+  if (profilesRes.error) console.warn("[adminStats] profiles query error:", profilesRes.error);
+  if (classesRes.error) console.warn("[adminStats] classes query error:", classesRes.error);
+  if (studentsRes.error) console.warn("[adminStats] class_students query error:", studentsRes.error);
 
   const next: PrimaryStats = { ...primaryCache, errors: [] };
 
@@ -71,9 +112,13 @@ export async function loadPrimarySchoolStats(_force = false): Promise<PrimarySta
     const approved = profilesRes.data.filter((u: any) => u.approval_status === "approved");
     next.admins = approved.filter((u: any) => u.role === "admin").length;
     next.teachers = approved.filter((u: any) => u.role === "teacher").length;
+  } else if (profilesRes.error) {
+    next.errors.push(`profiles: ${profilesRes.error.message}`);
   }
   if (!classesRes.error) next.classes = classesRes.count ?? 0;
+  else next.errors.push(`classes: ${classesRes.error.message}`);
   if (!studentsRes.error) next.students = studentsRes.count ?? 0;
+  else next.errors.push(`class_students: ${studentsRes.error.message}`);
   next.totalUsers = next.admins + next.teachers + next.students;
 
   primaryCache = next;
@@ -81,6 +126,17 @@ export async function loadPrimarySchoolStats(_force = false): Promise<PrimarySta
 }
 
 export async function loadSecondarySchoolStats(_force = false): Promise<SecondaryStats> {
+  // If RPC just succeeded via primary call, secondaryCache already holds the fresh value.
+  if (secondaryCache.errors.length === 0 && (secondaryCache.questions || secondaryCache.exams || secondaryCache.attempts || secondaryCache.recentExams.length)) {
+    return secondaryCache;
+  }
+  const rpc = await loadStatsViaRpc();
+  if (rpc) {
+    primaryCache = rpc.primary;
+    secondaryCache = rpc.secondary;
+    return rpc.secondary;
+  }
+
   const [qRes, eRes, aRes, scoresRes, recentRes] = await Promise.all([
     supabase.from("questions").select("*", { count: "exact", head: true }),
     supabase.from("exams").select("*", { count: "exact", head: true }),
@@ -89,11 +145,15 @@ export async function loadSecondarySchoolStats(_force = false): Promise<Secondar
     supabase.from("exams").select("id, title, status, time_limit_minutes").order("created_at", { ascending: false }).limit(5),
   ]);
 
+  for (const [label, res] of [["questions", qRes], ["exams", eRes], ["attempts", aRes], ["scores", scoresRes], ["recentExams", recentRes]] as const) {
+    if (res.error) console.warn(`[adminStats] ${label} query error:`, res.error);
+  }
+
   const next: SecondaryStats = { ...secondaryCache, errors: [] };
 
-  if (!qRes.error) next.questions = qRes.count ?? 0;
-  if (!eRes.error) next.exams = eRes.count ?? 0;
-  if (!aRes.error) next.attempts = aRes.count ?? 0;
+  if (!qRes.error) next.questions = qRes.count ?? 0; else next.errors.push(`questions: ${qRes.error.message}`);
+  if (!eRes.error) next.exams = eRes.count ?? 0; else next.errors.push(`exams: ${eRes.error.message}`);
+  if (!aRes.error) next.attempts = aRes.count ?? 0; else next.errors.push(`attempts: ${aRes.error.message}`);
 
   if (!scoresRes.error && scoresRes.data) {
     const scored = scoresRes.data.filter((r: any) => Number(r.max_score) > 0);
