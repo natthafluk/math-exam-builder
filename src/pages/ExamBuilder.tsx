@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,11 +35,40 @@ const DEFAULT_SETTINGS: ExamSettings = {
   showExplanationsAfterClose: true,
 };
 
+interface DbClass { id: string; name: string; grade_level: string; teacher_id: string | null; student_count: number }
+
 export default function ExamBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { exams, questions, classes, topics, currentUser, addExam, updateExam, logAudit } = useStore();
+  const { profile } = useAuth();
+  const { exams, questions, topics, currentUser, addExam, updateExam, logAudit } = useStore();
   const existing = id && id !== "new" ? exams.find((e) => e.id === id) : undefined;
+
+  // Real classes from DB (filtered by RPC to current teacher / admin)
+  const [classes, setClasses] = useState<DbClass[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      setClassesLoading(true);
+      const { data, error } = await (supabase as any).rpc("teacher_list_classes_with_students");
+      if (cancelled) return;
+      if (error) {
+        console.warn("[ExamBuilder] load classes failed:", error.message);
+        toast.error("โหลดห้องเรียนไม่สำเร็จ: " + error.message);
+        setClasses([]);
+      } else {
+        setClasses((data ?? []).map((c: any) => ({
+          id: c.id, name: c.name, grade_level: c.grade_level,
+          teacher_id: c.teacher_id, student_count: c.student_count ?? 0,
+        })));
+      }
+      setClassesLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile]);
 
   const [step, setStep] = useState(0);
   const [confirm, setConfirm] = useState(false);
