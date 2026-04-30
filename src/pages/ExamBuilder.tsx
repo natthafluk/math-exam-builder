@@ -225,7 +225,7 @@ export default function ExamBuilder() {
       title={existing ? "แก้ไขชุดข้อสอบ" : "สร้างชุดข้อสอบ"}
       breadcrumbs={[{ label: "หน้าหลัก", to: "/" }, { label: "ชุดข้อสอบ", to: "/exams" }, { label: existing ? "แก้ไข" : "สร้างใหม่" }]}
       actions={
-        <Button variant="outline" size="sm" onClick={saveDraft} className="gap-1.5"><Save className="w-4 h-4" /> บันทึกร่าง</Button>
+        <Button variant="outline" size="sm" onClick={saveDraft} disabled={busy} className="gap-1.5"><Save className="w-4 h-4" /> บันทึกร่าง</Button>
       }
     >
       <Stepper current={step} onJump={(i) => setStep(i)} />
@@ -418,7 +418,7 @@ export default function ExamBuilder() {
             ถัดไป <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button onClick={() => setConfirm(true)} className="gap-1.5"><Check className="w-4 h-4" /> มอบหมายข้อสอบ</Button>
+          <Button onClick={() => setConfirm(true)} disabled={busy} className="gap-1.5"><Check className="w-4 h-4" /> มอบหมายข้อสอบ</Button>
         )}
       </div>
 
