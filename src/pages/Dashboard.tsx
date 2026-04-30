@@ -14,6 +14,16 @@ import { loadPrimarySchoolStats, loadSecondarySchoolStats, type PrimaryStats, ty
 
 export default function Dashboard() {
   const { currentUser } = useStore();
+  console.info("[Dashboard] route decision for user:", { id: currentUser.id, role: currentUser.role, name: currentUser.name });
+  if (!currentUser || !currentUser.role) {
+    return (
+      <AppLayout title="Dashboard">
+        <Card className="p-6 text-center text-sm text-muted-foreground">
+          ไม่พบข้อมูลโปรไฟล์ของคุณ หรือบทบาทไม่ถูกต้อง กรุณาออกจากระบบแล้วเข้าใหม่ หรือติดต่อผู้ดูแลระบบ
+        </Card>
+      </AppLayout>
+    );
+  }
   if (currentUser.role === "admin") return <AdminDash />;
   if (currentUser.role === "teacher") return <TeacherDash />;
   return <StudentDash />;
