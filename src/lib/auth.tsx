@@ -66,12 +66,22 @@ const profileQuery = async (uid: string) => {
     .maybeSingle();
 };
 
-const profileFunctionQuery = async (): Promise<Profile | null> => {
-  const { data, error } = await supabase.functions.invoke("fetch-profile", {
+const profileFunctionQuery = async (accessToken?: string): Promise<Profile | null> => {
+  const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token;
+  if (!token) throw new Error("missing session token");
+
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-profile`, {
     method: "POST",
-    body: {},
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: "{}",
   });
-  if (error) throw new Error(error.message);
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || `profile function failed (${response.status})`);
   return (data?.profile ?? null) as Profile | null;
 };
 
@@ -113,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileStatus, setProfileStatus] = useState<ProfileLoadStatus>({ state: "idle" });
   const profileRequestRef = useRef<Promise<void> | null>(null);
 
-  const loadProfile = useCallback(async (uid: string, authUser?: User) => {
+  const loadProfile = useCallback(async (uid: string, accessToken?: string) => {
     const cached = readCachedProfile(uid);
     if (cached) {
       setProfile(cached);
@@ -136,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (restError) {
           lastMessage = restError instanceof Error ? restError.message : String(restError);
           if (!transientProfileError(lastMessage)) throw restError;
-          nextProfile = await withTimeout(profileFunctionQuery(), 5_000);
+          nextProfile = await withTimeout(profileFunctionQuery(accessToken), 5_000);
         }
         if (!nextProfile) {
           setProfile(null);
@@ -178,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         if (!profileRequestRef.current) {
-          profileRequestRef.current = loadProfile(s.user.id, s.user).finally(() => {
+          profileRequestRef.current = loadProfile(s.user.id, s.access_token).finally(() => {
             profileRequestRef.current = null;
           });
         }
