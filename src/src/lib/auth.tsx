@@ -177,16 +177,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // both triggering a profile load for the exact same initial session.
     let initialHandled = false;
 
-    const handleSession = (s: Session | null) => {
+    // FIX: defer loadProfile out of the Supabase callback with setTimeout(0).
+    // Supabase aborts any fetch requests made synchronously inside its own
+    // onAuthStateChange callback. Deferring with setTimeout lets Supabase finish
+    // its internal processing first, so our profile fetch succeeds.
+    const handleSession = (s: Session | null, defer = false) => {
       if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
 
       if (s?.user) {
-        // loadProfile cancels any previous in-flight load internally via abortRef
-        loadProfile(s.user.id).finally(() => {
-          if (mounted) setLoading(false);
-        });
+        const uid = s.user.id;
+        if (defer) {
+          // Defer the actual fetch out of the Supabase callback
+          window.setTimeout(() => {
+            if (!mounted) return;
+            loadProfile(uid).finally(() => {
+              if (mounted) setLoading(false);
+            });
+          }, 0);
+        } else {
+          loadProfile(uid).finally(() => {
+            if (mounted) setLoading(false);
+          });
+        }
       } else {
         // Signed out — cancel any in-flight load and reset state
         abortRef.current?.abort();
@@ -205,14 +219,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only use it if getSession() hasn't already handled the initial state.
         if (!initialHandled) {
           initialHandled = true;
-          handleSession(s);
+          // INITIAL_SESSION fires inside Supabase's subscribe call — defer to avoid abort
+          handleSession(s, true);
         }
         return;
       }
 
       // All other events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED…)
       // always reflect genuine state changes — handle them unconditionally.
-      handleSession(s);
+      // Defer profile load so Supabase finishes its internal processing first.
+      handleSession(s, true);
     });
 
     // Fallback: if INITIAL_SESSION somehow never fires (older Supabase versions),
@@ -220,7 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted || initialHandled) return;
       initialHandled = true;
-      handleSession(s);
+      // getSession() is called outside Supabase's callback — no defer needed
+      handleSession(s, false);
     });
 
     return () => {
@@ -267,11 +284,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message ?? null };
     },
     signOut: async () => {
-      abortRef.current?.abort(); // Cancel any in-flight profile load before signing out
-      await supabase.auth.signOut();
-      clearCachedProfile(user?.id);
+      // FIX: Clear state immediately so RequireAuth redirects to /auth right away,
+      // without waiting for the SIGNED_OUT event to fire (which can be slow).
+      abortRef.current?.abort();
+      const uid = user?.id;
+      setSession(null);
+      setUser(null);
       setProfile(null);
       setProfileStatus({ state: "idle" });
+      setLoading(false);
+      clearCachedProfile(uid);
+      // Fire-and-forget: the actual Supabase session invalidation.
+      // SIGNED_OUT event will fire but handleSession will just no-op since user is already null.
+      supabase.auth.signOut().catch(() => { /* noop — UI already reset */ });
     },
     refreshProfile: async () => {
       if (user) await loadProfile(user.id);
