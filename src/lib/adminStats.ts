@@ -88,9 +88,9 @@ export async function loadPrimarySchoolStats(force = false): Promise<PrimaryStat
 
   primaryPromise = (async (): Promise<PrimaryStats> => {
     const [profilesRes, classesRes, studentsRes] = await Promise.allSettled([
-      supabase.from("profiles").select("role, approval_status"),
-      supabase.from("classes").select("*", { count: "exact", head: true }),
-      supabase.from("class_students").select("*", { count: "exact", head: true }),
+      runWithRetry(() => supabase.from("profiles").select("role, approval_status"), "stats_profiles"),
+      runWithRetry(() => supabase.from("classes").select("*", { count: "exact", head: true }), "stats_classes"),
+      runWithRetry(() => supabase.from("class_students").select("*", { count: "exact", head: true }), "stats_class_students"),
     ]);
 
     const errors: string[] = [];
