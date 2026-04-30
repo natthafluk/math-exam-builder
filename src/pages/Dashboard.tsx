@@ -41,81 +41,41 @@ function Stat({ icon: Icon, label, value, hint, tone = "primary" }: any) {
 }
 
 function AdminDash() {
-  const { currentUser } = useStore();
   const [primaryStats, setPrimaryStats] = useState<PrimaryStats | null>(null);
   const [secondaryStats, setSecondaryStats] = useState<SecondaryStats | null>(null);
-  const [primaryLoading, setPrimaryLoading] = useState(true);
-  const [secondaryLoading, setSecondaryLoading] = useState(true);
-  const [primaryError, setPrimaryError] = useState<string | null>(null);
-  const [secondaryError, setSecondaryError] = useState<string | null>(null);
 
-  const reloadKey = currentUser?.id ?? "";
+  const refreshStats = useCallback(() => {
+    loadPrimarySchoolStats().then(setPrimaryStats).catch((err) => console.warn("[AdminDash] primary failed:", err));
+    loadSecondarySchoolStats().then(setSecondaryStats).catch((err) => console.warn("[AdminDash] secondary failed:", err));
+  }, []);
 
-  const refreshStats = useCallback((force = false) => {
-    if (!reloadKey) return;
-    setPrimaryLoading(true);
-    setPrimaryError(null);
-    loadPrimarySchoolStats(force)
-      .then((nextStats) => {
-        setPrimaryStats(nextStats);
-        setPrimaryError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
-      })
-      .catch((err: any) => {
-        const msg = err?.message ?? String(err);
-        console.error("[AdminDash] primary stats failed:", err);
-        toast.error(`โหลดสถิติหลักไม่สำเร็จ: ${msg}`);
-        setPrimaryError(msg);
-      })
-      .finally(() => setPrimaryLoading(false));
+  useEffect(() => { refreshStats(); }, [refreshStats]);
 
-    setSecondaryLoading(true);
-    setSecondaryError(null);
-    loadSecondarySchoolStats(force)
-      .then((nextStats) => {
-        setSecondaryStats(nextStats);
-        setSecondaryError(nextStats.errors.length > 0 ? nextStats.errors.join(" / ") : null);
-      })
-      .catch((err: any) => {
-        const msg = err?.message ?? String(err);
-        console.error("[AdminDash] secondary stats failed:", err);
-        setSecondaryError(msg);
-      })
-      .finally(() => setSecondaryLoading(false));
-  }, [reloadKey]);
-
-  useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
-
-  const displayPrimary = (value: number | null | undefined) => primaryLoading && primaryStats === null ? "..." : value ?? "โหลดไม่ได้";
-  const displaySecondary = (value: number | null | undefined) => secondaryLoading && secondaryStats === null ? "..." : value ?? "-";
-  const recentExams = secondaryStats?.recentExams ?? [];
+  const p = primaryStats;
+  const s = secondaryStats;
+  const recentExams = s?.recentExams ?? [];
 
   return (
-    <AppLayout title="Dashboard">
-      {(primaryError || secondaryError) && (
-        <Card className="p-4 mb-4 bg-destructive/10 text-destructive text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            {primaryError ? `โหลดสถิติหลักไม่สำเร็จ: ${primaryError}` : "โหลดสถิติรองบางส่วนไม่สำเร็จ"}
-            {secondaryError ? <div className="mt-1 text-destructive/80">สถิติรอง: {secondaryError}</div> : null}
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refreshStats(true)} className="gap-1.5 self-start sm:self-auto">
-            <RefreshCw className="w-3.5 h-3.5" /> ลองใหม่
-          </Button>
-        </Card>
-      )}
+    <AppLayout
+      title="Dashboard"
+      actions={
+        <Button variant="outline" size="sm" onClick={refreshStats} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> รีเฟรช
+        </Button>
+      }
+    >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={displayPrimary(primaryStats?.totalUsers)} hint="ผู้ดูแล + ครู + นักเรียน" />
-        <Stat icon={BookOpen} label="ข้อสอบในคลัง" value={displaySecondary(secondaryStats?.questions)} tone="accent" />
-        <Stat icon={ClipboardList} label="ชุดข้อสอบ" value={displaySecondary(secondaryStats?.exams)} tone="success" />
-        <Stat icon={TrendingUp} label="การทำข้อสอบ" value={displaySecondary(secondaryStats?.attempts)} tone="warning" />
+        <Stat icon={Users} label="ผู้ใช้ทั้งหมด" value={p?.totalUsers ?? 0} hint="ผู้ดูแล + ครู + นักเรียน" />
+        <Stat icon={BookOpen} label="ข้อสอบในคลัง" value={s?.questions ?? 0} tone="accent" />
+        <Stat icon={ClipboardList} label="ชุดข้อสอบ" value={s?.exams ?? 0} tone="success" />
+        <Stat icon={TrendingUp} label="การทำข้อสอบ" value={s?.attempts ?? 0} tone="warning" />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-        <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={displayPrimary(primaryStats?.admins)} tone="primary" />
-        <Stat icon={UserCog} label="ครู" value={displayPrimary(primaryStats?.teachers)} tone="accent" />
-        <Stat icon={GraduationCap} label="นักเรียน" value={displayPrimary(primaryStats?.students)} hint="จากทะเบียนห้องเรียน" tone="success" />
-        <Stat icon={GraduationCap} label="ห้องเรียน" value={displayPrimary(primaryStats?.classes)} tone="warning" />
+        <Stat icon={ShieldCheck} label="ผู้ดูแลระบบ" value={p?.admins ?? 0} tone="primary" />
+        <Stat icon={UserCog} label="ครู" value={p?.teachers ?? 0} tone="accent" />
+        <Stat icon={GraduationCap} label="นักเรียน" value={p?.students ?? 0} hint="จากทะเบียนห้องเรียน" tone="success" />
+        <Stat icon={GraduationCap} label="ห้องเรียน" value={p?.classes ?? 0} tone="warning" />
       </div>
 
       <div className="mt-6">
