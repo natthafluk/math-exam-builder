@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Plus, ArrowLeft, Save, CheckCircle2, Circle, Lock, Globe } from "lucide-react";
+import { Trash2, Plus, ArrowLeft, CheckCircle2, Circle, Lock, Globe, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { validateMath } from "@/lib/mathValidate";
 import type { Choice, Difficulty, Question, QuestionStatus, QuestionType } from "@/lib/types";
@@ -42,6 +42,7 @@ export default function QuestionEditor() {
   );
   const [tagInput, setTagInput] = useState("");
   const [confirmAction, setConfirmAction] = useState<null | "draft" | "published">(null);
+  const [saving, setSaving] = useState(false);
 
   const set = <K extends keyof Question>(k: K, v: Question[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
@@ -60,7 +61,7 @@ export default function QuestionEditor() {
 
   const ready = checklist.every(c => c.ok);
 
-  const save = (status?: QuestionStatus) => {
+  const save = async (status?: QuestionStatus) => {
     if (!draft.title.trim() || !draft.body.trim()) {
       toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์");
       return;
@@ -72,10 +73,13 @@ export default function QuestionEditor() {
       reviewedBy: status === "published" ? currentUser.id : draft.reviewedBy,
       updatedAt: new Date().toISOString(),
     };
-    existing ? updateQuestion(next) : addQuestion(next);
-    if (status === "draft") logAudit({ action: existing ? "บันทึกข้อสอบส่วนตัว" : "สร้างข้อสอบส่วนตัว", target: next.title, tone: "default" });
-    if (status === "published") logAudit({ action: existing ? "อัปเดตข้อสอบในคลัง" : "ส่งข้อสอบเข้าคลัง", target: next.title, tone: "success" });
-    toast.success(existing ? "บันทึกการแก้ไขแล้ว" : "เพิ่มข้อใหม่เข้าคลังแล้ว");
+    setSaving(true);
+    const saved = existing ? await updateQuestion(next) : await addQuestion(next);
+    setSaving(false);
+    if (!saved) return;
+    if (status === "draft") logAudit({ action: existing ? "บันทึกข้อสอบส่วนตัว" : "สร้างข้อสอบส่วนตัว", target: saved.title, tone: "default" });
+    if (status === "published") logAudit({ action: existing ? "อัปเดตข้อสอบในคลัง" : "ส่งข้อสอบเข้าคลัง", target: saved.title, tone: "success" });
+    toast.success(status === "draft" ? "บันทึกข้อสอบส่วนตัวแล้ว" : "บันทึกข้อสอบเข้าคลังแล้ว");
     navigate("/questions");
   };
 
@@ -93,18 +97,18 @@ export default function QuestionEditor() {
       ]}
       actions={
         <div className="flex flex-wrap gap-1.5 justify-end">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> ย้อนกลับ</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)} disabled={saving} className="gap-1.5"><ArrowLeft className="w-4 h-4" /> ย้อนกลับ</Button>
           <Button variant="secondary" size="sm" onClick={() => {
             if (!draft.title.trim() || !draft.body.trim()) { toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์"); return; }
             setConfirmAction("draft");
-          }} className="gap-1.5" title="เก็บไว้ดูคนเดียว ไม่เข้าคลังกลาง">
-            <Lock className="w-3.5 h-3.5" /> เก็บส่วนตัว
+          }} className="gap-1.5" disabled={saving} title="เก็บไว้ดูคนเดียว ไม่เข้าคลังกลาง">
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} เก็บส่วนตัว
           </Button>
           <Button size="sm" onClick={() => {
             if (!draft.title.trim() || !draft.body.trim()) { toast.error("กรุณากรอกชื่อและเนื้อหาโจทย์"); return; }
             setConfirmAction("published");
-          }} className="gap-1.5" disabled={!ready} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนส่งเข้าคลัง" : "ส่งเข้าคลังกลางให้ครูคนอื่นใช้ได้"}>
-            <Globe className="w-4 h-4" /> ส่งเข้าคลัง
+          }} className="gap-1.5" disabled={!ready || saving} title={!ready ? "ตรวจสอบรายการคุณภาพก่อนส่งเข้าคลัง" : "ส่งเข้าคลังกลางให้ครูคนอื่นใช้ได้"}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} ส่งเข้าคลัง
           </Button>
         </div>
       }
@@ -270,12 +274,12 @@ export default function QuestionEditor() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>ยกเลิก</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               const a = confirmAction;
               setConfirmAction(null);
               if (a) save(a);
-            }}>ยืนยัน</AlertDialogAction>
+            }} disabled={saving}>ยืนยัน</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
