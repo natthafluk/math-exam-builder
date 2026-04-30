@@ -63,11 +63,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Real users come from Supabase profiles via useAuth(); seed users were demo data only.
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
-  const [classes] = useState<ClassRoom[]>(seedClasses);
+  const [classes] = useState<ClassRoom[]>([]);
   const [topics, setTopics] = useState<Topic[]>(seedTopics);
-  const [questions, setQuestions] = useState<Question[]>(seedQuestions);
-  const [exams, setExams] = useState<Exam[]>(seedExams);
-  const [attempts, setAttempts] = useState<Attempt[]>(seedAttempts);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>(seedAudit);
   const [school, setSchool] = useState<SchoolSettings>(seedSchool);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
