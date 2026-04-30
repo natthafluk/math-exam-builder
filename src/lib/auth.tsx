@@ -84,8 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cached) setProfile(cached);
     setProfileStatus({ state: "loading", message: cached ? "กำลังอัปเดตโปรไฟล์อีกครั้ง" : "กำลังโหลดโปรไฟล์" });
 
+    const deadline = Date.now() + (cached ? 2_500 : 4_500);
+    let attempt = 0;
+
     let lastMessage = "ระบบเชื่อมต่อฐานข้อมูลไม่สำเร็จชั่วคราว";
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
+    while (Date.now() < deadline) {
+      attempt += 1;
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -105,9 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       } catch (e) {
         lastMessage = e instanceof Error ? e.message : String(e);
-        if (!transientProfileError(lastMessage) || attempt === 5) break;
+        if (!transientProfileError(lastMessage)) break;
         setProfileStatus({ state: "loading", message: `ฐานข้อมูลกำลังพร้อมใช้งาน กำลังลองใหม่ครั้งที่ ${attempt + 1}` });
-        await wait(350 * attempt);
+        await wait(Math.min(700, 250 * attempt));
       }
     }
 
@@ -189,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => {
       await supabase.auth.signOut();
+      clearCachedProfile(user?.id);
       setProfile(null);
       setProfileStatus({ state: "idle" });
     },
